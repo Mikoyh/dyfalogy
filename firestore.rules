@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (Auth UID)
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string
+    //   - email: string (required)
+    //   - photoURL: string
+    //   - level: number
+    //   - xp: number
+    //   - completedLessons: list
+    //   - badges: list
+    //   - createdAt: timestamp
+    //
+    // Collection: forumTopics
+    // Fields: title, content, authorId, authorName, authorPhoto, replyCount, createdAt
+    //
+    // Collection: forumTopics/{topicId}/replies
+    // Fields: topicId, content, authorId, authorName, authorPhoto, createdAt
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string &&
+             data.email is string;
+    }
+
+    function isValidTopic(data) {
+      return data.keys().hasAll(['title', 'content', 'authorId']) &&
+             data.authorId == request.auth.uid &&
+             data.title is string && data.title.size() < 200 &&
+             data.content is string && data.content.size() < 5000;
+    }
+
+    function isValidReply(data) {
+      return data.keys().hasAll(['content', 'authorId']) &&
+             data.authorId == request.auth.uid &&
+             data.content is string && data.content.size() < 2000;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      
+      match /chatHistory/{messageId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+      }
+
+      match /quizResults/{resultId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+      }
+    }
+
+    match /forumTopics/{topicId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidTopic(request.resource.data);
+      allow update: if isAuthenticated() && (isOwner(resource.data.authorId) || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replyCount']));
+      allow delete: if isAuthenticated() && isOwner(resource.data.authorId);
+
+      match /replies/{replyId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isValidReply(request.resource.data);
+        allow delete: if isAuthenticated() && isOwner(resource.data.authorId);
+      }
+    }
+  }
+}

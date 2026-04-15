@@ -1,0 +1,996 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth, signInWithGoogle, logout, db } from './lib/firebase';
+import { doc, getDoc, setDoc, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, updateDoc, increment, deleteDoc } from 'firebase/firestore';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  BookOpen, 
+  Brain, 
+  MessageSquare, 
+  User, 
+  LogOut, 
+  ChevronRight, 
+  Award, 
+  Zap, 
+  Search,
+  Menu,
+  X,
+  Send,
+  Sparkles,
+  Users,
+  Plus,
+  MessageCircle,
+  Trophy,
+  Star
+} from 'lucide-react';
+import { LESSONS, STUDY_STRATEGIES, BADGES, Lesson, Badge } from './constants/data';
+import { getGeminiResponse, generateQuiz } from './lib/gemini';
+import ReactMarkdown from 'react-markdown';
+import { cn } from './lib/utils';
+
+// --- Components ---
+
+const Navbar = ({ user, onLogout, activeTab, onToggleAi }: { user: any, onLogout: () => void, activeTab: string, onToggleAi: () => void }) => (
+  <nav className="h-16 glass-nav flex items-center justify-between px-6 shrink-0 z-50 sticky top-0">
+    <div className="text-sm font-medium flex items-center gap-2">
+      <span className="text-text-muted">dyfalogy /</span> 
+      <span className="font-bold text-accent">
+        {activeTab === 'dashboard' ? 'Overview' : 
+         activeTab === 'lessons' ? 'Mulai Belajar' : 
+         activeTab === 'strategies' ? 'Strategi Belajar' : 
+         activeTab === 'forum' ? 'Komunitas' : 'Chat'}
+      </span>
+    </div>
+    
+    <div className="flex items-center gap-4">
+      <button 
+        onClick={onToggleAi}
+        className="xl:hidden p-2 text-accent hover:bg-accent/10 rounded-full transition-all"
+      >
+        <MessageSquare size={20} />
+      </button>
+      {user && (
+        <div className="flex items-center gap-3">
+          <div className="text-right hidden sm:block">
+            <p className="text-sm font-bold text-text-main leading-none">{user.displayName}</p>
+            <p className="text-[11px] text-text-muted mt-1">Rank: #12 Nasional</p>
+          </div>
+          <div className="relative group cursor-pointer">
+            <img 
+              src={user.photoURL || 'https://picsum.photos/seed/user/100/100'} 
+              className="w-9 h-9 rounded-full border border-white/50 shadow-sm"
+              alt="Profile"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute -top-1 -right-1 bg-gold text-[9px] font-black px-1.5 py-0.5 rounded border border-white badge-glow">
+              LVL {user.level || 1}
+            </div>
+          </div>
+          <button 
+            onClick={onLogout}
+            className="p-1.5 text-text-muted hover:text-red-600 transition-colors liquid-button"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
+      )}
+    </div>
+  </nav>
+);
+
+const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (t: string) => void }) => {
+  const groups = [
+    {
+      label: 'Kurikulum',
+      items: [
+        { id: 'dashboard', icon: Brain, label: 'Dashboard' },
+        { id: 'lessons', icon: BookOpen, label: 'Mulai Belajar' },
+      ]
+    },
+    {
+      label: 'Interaksi',
+      items: [
+        { id: 'forum', icon: Users, label: 'Forum Komunitas' },
+        { id: 'chat', icon: MessageSquare, label: 'Tanya AI' },
+      ]
+    },
+    {
+      label: 'Latihan',
+      items: [
+        { id: 'strategies', icon: Zap, label: 'Strategi Belajar' },
+      ]
+    }
+  ];
+
+  return (
+    <aside className="w-[240px] glass-sidebar text-white flex flex-col p-5 shrink-0">
+      <div className="text-2xl font-extrabold tracking-tighter text-[#74C69D] mb-10 flex items-center gap-2">
+        <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center shadow-lg shadow-accent/20">
+          <Brain size={18} />
+        </div>
+        DYFALOGY
+      </div>
+      
+      <div className="space-y-6">
+        {groups.map((group) => (
+          <div key={group.label} className="space-y-3">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-[#40916C] opacity-70">
+              {group.label}
+            </div>
+            <div className="space-y-1">
+              {group.items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all liquid-button",
+                    activeTab === item.id 
+                      ? "bg-accent text-white shadow-lg shadow-accent/20" 
+                      : "text-white/60 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  <item.icon size={16} />
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+};
+
+// --- Quiz Component ---
+
+const Quiz = ({ questions, onFinish, onCancel }: { questions: any[], onFinish: (score: number, correct: number) => void, onCancel: () => void }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [showExplanation, setShowExplanation] = useState(false);
+
+  const currentQuestion = questions[currentIndex];
+
+  const handleNext = () => {
+    if (selectedOption === currentQuestion.correctAnswer) {
+      setScore(score + 1);
+    }
+    
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setSelectedOption(null);
+      setShowExplanation(false);
+    } else {
+      const finalCorrect = score + (selectedOption === currentQuestion.correctAnswer ? 1 : 0);
+      const finalScore = (finalCorrect / questions.length) * 100;
+      onFinish(finalScore, finalCorrect);
+    }
+  };
+
+  return (
+    <div className="glass-card rounded-2xl p-8 space-y-6 max-w-2xl mx-auto">
+      <div className="flex justify-between items-center">
+        <span className="text-xs font-bold text-accent uppercase tracking-widest">Pertanyaan {currentIndex + 1} / {questions.length}</span>
+        <button onClick={onCancel} className="text-text-muted hover:text-red-500 transition-colors"><X size={18} /></button>
+      </div>
+      
+      <div className="h-1.5 bg-gray-100/50 rounded-full overflow-hidden">
+        <div className="h-full bg-accent transition-all duration-300" style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }} />
+      </div>
+
+      <h3 className="text-lg font-bold text-text-main leading-relaxed">{currentQuestion.question}</h3>
+
+      <div className="space-y-3">
+        {currentQuestion.options.map((option: string, idx: number) => (
+          <button
+            key={idx}
+            disabled={showExplanation}
+            onClick={() => setSelectedOption(idx)}
+            className={cn(
+              "w-full text-left p-4 rounded-xl border transition-all text-sm",
+              selectedOption === idx 
+                ? "border-accent bg-accent/5 font-bold" 
+                : "border-white/50 bg-white/20 hover:bg-white/40",
+              showExplanation && idx === currentQuestion.correctAnswer && "border-emerald-500 bg-emerald-50/50",
+              showExplanation && selectedOption === idx && idx !== currentQuestion.correctAnswer && "border-red-500 bg-red-50/50"
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <span className="w-6 h-6 rounded-full border border-current flex items-center justify-center text-[10px] shrink-0">
+                {String.fromCharCode(65 + idx)}
+              </span>
+              {option}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {showExplanation && (
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-accent/5 rounded-xl border border-accent/20 text-xs text-text-muted italic"
+        >
+          <strong>Penjelasan:</strong> {currentQuestion.explanation}
+        </motion.div>
+      )}
+
+      <button
+        disabled={selectedOption === null}
+        onClick={() => {
+          if (!showExplanation) setShowExplanation(true);
+          else handleNext();
+        }}
+        className="w-full bg-accent text-white py-4 rounded-xl font-bold text-sm liquid-button disabled:opacity-30"
+      >
+        {!showExplanation ? 'Periksa Jawaban' : (currentIndex === questions.length - 1 ? 'Selesai Quiz' : 'Pertanyaan Berikutnya')}
+      </button>
+    </div>
+  );
+};
+
+// --- Forum Components ---
+
+const Forum = ({ user }: { user: any }) => {
+  const [topics, setTopics] = useState<any[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState<any>(null);
+  const [replies, setReplies] = useState<any[]>([]);
+  const [newTopicTitle, setNewTopicTitle] = useState('');
+  const [newTopicContent, setNewTopicContent] = useState('');
+  const [newReplyContent, setNewReplyContent] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+
+  useEffect(() => {
+    const q = query(collection(db, 'forumTopics'), orderBy('createdAt', 'desc'), limit(20));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setTopics(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (selectedTopic) {
+      const q = query(collection(db, 'forumTopics', selectedTopic.id, 'replies'), orderBy('createdAt', 'asc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setReplies(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+      return () => unsubscribe();
+    }
+  }, [selectedTopic]);
+
+  const handleCreateTopic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTopicTitle.trim() || !newTopicContent.trim() || !user) return;
+
+    await addDoc(collection(db, 'forumTopics'), {
+      title: newTopicTitle,
+      content: newTopicContent,
+      authorId: user.uid,
+      authorName: user.displayName,
+      authorPhoto: user.photoURL,
+      replyCount: 0,
+      createdAt: serverTimestamp()
+    });
+
+    setNewTopicTitle('');
+    setNewTopicContent('');
+    setIsCreating(false);
+  };
+
+  const handleCreateReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newReplyContent.trim() || !user || !selectedTopic) return;
+
+    await addDoc(collection(db, 'forumTopics', selectedTopic.id, 'replies'), {
+      topicId: selectedTopic.id,
+      content: newReplyContent,
+      authorId: user.uid,
+      authorName: user.displayName,
+      authorPhoto: user.photoURL,
+      createdAt: serverTimestamp()
+    });
+
+    await updateDoc(doc(db, 'forumTopics', selectedTopic.id), {
+      replyCount: increment(1)
+    });
+
+    setNewReplyContent('');
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {selectedTopic ? (
+        <div className="space-y-6">
+          <button onClick={() => setSelectedTopic(null)} className="text-accent text-xs font-bold flex items-center gap-1 hover:underline">
+            ← KEMBALI KE FORUM
+          </button>
+          
+          <div className="glass-card rounded-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <img src={selectedTopic.authorPhoto} className="w-10 h-10 rounded-full" alt="" referrerPolicy="no-referrer" />
+              <div>
+                <div className="text-sm font-bold">{selectedTopic.authorName}</div>
+                <div className="text-[10px] text-text-muted">Dibuat pada {selectedTopic.createdAt?.toDate().toLocaleDateString()}</div>
+              </div>
+            </div>
+            <h2 className="text-xl font-black">{selectedTopic.title}</h2>
+            <p className="text-sm text-text-muted leading-relaxed whitespace-pre-wrap">{selectedTopic.content}</p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="text-sm font-bold flex items-center gap-2">
+              <MessageCircle size={16} /> Balasan ({selectedTopic.replyCount})
+            </div>
+            {replies.map((reply) => (
+              <div key={reply.id} className="glass-card rounded-xl p-4 space-y-2 ml-6">
+                <div className="flex items-center gap-2">
+                  <img src={reply.authorPhoto} className="w-6 h-6 rounded-full" alt="" referrerPolicy="no-referrer" />
+                  <span className="text-xs font-bold">{reply.authorName}</span>
+                </div>
+                <p className="text-sm text-text-muted">{reply.content}</p>
+              </div>
+            ))}
+          </div>
+
+          <form onSubmit={handleCreateReply} className="glass-card rounded-xl p-4 flex gap-2">
+            <input 
+              type="text" 
+              value={newReplyContent}
+              onChange={(e) => setNewReplyContent(e.target.value)}
+              placeholder="Tulis balasan..."
+              className="flex-1 bg-white/50 border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-accent"
+            />
+            <button type="submit" className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-bold liquid-button">
+              Kirim
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-black">Diskusi Komunitas</h2>
+            <button 
+              onClick={() => setIsCreating(!isCreating)}
+              className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 liquid-button"
+            >
+              {isCreating ? <X size={16} /> : <Plus size={16} />}
+              {isCreating ? 'Batal' : 'Topik Baru'}
+            </button>
+          </div>
+
+          {isCreating && (
+            <motion.form 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              onSubmit={handleCreateTopic} 
+              className="glass-card rounded-2xl p-6 space-y-4"
+            >
+              <input 
+                type="text" 
+                value={newTopicTitle}
+                onChange={(e) => setNewTopicTitle(e.target.value)}
+                placeholder="Judul Topik"
+                className="w-full bg-white/50 border border-border rounded-lg px-4 py-2 text-sm font-bold focus:outline-none focus:border-accent"
+              />
+              <textarea 
+                value={newTopicContent}
+                onChange={(e) => setNewTopicContent(e.target.value)}
+                placeholder="Apa yang ingin kamu diskusikan?"
+                rows={4}
+                className="w-full bg-white/50 border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-accent"
+              />
+              <button type="submit" className="w-full bg-accent text-white py-3 rounded-lg font-bold liquid-button">
+                Posting Topik
+              </button>
+            </motion.form>
+          )}
+
+          <div className="grid gap-4">
+            {topics.map((topic) => (
+              <button
+                key={topic.id}
+                onClick={() => setSelectedTopic(topic)}
+                className="glass-card rounded-xl p-5 text-left hover:border-accent transition-all group"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-2">
+                    <img src={topic.authorPhoto} className="w-6 h-6 rounded-full" alt="" referrerPolicy="no-referrer" />
+                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{topic.authorName}</span>
+                  </div>
+                  <div className="text-[10px] font-mono text-text-muted">{topic.createdAt?.toDate().toLocaleDateString()}</div>
+                </div>
+                <h3 className="text-base font-bold text-text-main group-hover:text-accent transition-colors mb-2">{topic.title}</h3>
+                <p className="text-xs text-text-muted line-clamp-2 mb-4">{topic.content}</p>
+                <div className="flex items-center gap-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">
+                  <span className="flex items-center gap-1"><MessageCircle size={12} /> {topic.replyCount} Balasan</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Main App ---
+
+export default function App() {
+  const [user, loading] = useAuthState(auth);
+  const [userData, setUserData] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  
+  // Quiz states
+  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+  const [isQuizActive, setIsQuizActive] = useState(false);
+  const [isQuizLoading, setIsQuizLoading] = useState(false);
+  const [quizResult, setQuizResult] = useState<{ score: number, correct: number } | null>(null);
+  
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Sync User Data with Firestore
+  useEffect(() => {
+    if (user) {
+      const userRef = doc(db, 'users', user.uid);
+      const unsubscribe = onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setUserData(docSnap.data());
+        } else {
+          const newData = {
+            uid: user.uid,
+            displayName: user.displayName,
+            email: user.email,
+            photoURL: user.photoURL,
+            level: 1,
+            xp: 0,
+            completedLessons: [],
+            badges: [],
+            createdAt: new Date().toISOString()
+          };
+          setDoc(userRef, newData);
+          setUserData(newData);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  // Chat History Listener
+  useEffect(() => {
+    if (user) {
+      const chatRef = collection(db, 'users', user.uid, 'chatHistory');
+      const q = query(chatRef, orderBy('timestamp', 'asc'), limit(50));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const msgs = snapshot.docs.map(d => d.data());
+        setChatMessages(msgs);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputMessage.trim() || !user) return;
+
+    const userMsg = inputMessage;
+    setInputMessage('');
+    setIsAiLoading(true);
+
+    try {
+      const chatRef = collection(db, 'users', user.uid, 'chatHistory');
+      await addDoc(chatRef, {
+        userId: user.uid,
+        role: 'user',
+        content: userMsg,
+        timestamp: serverTimestamp()
+      });
+
+      const history = chatMessages.map(m => ({
+        role: m.role,
+        parts: [{ text: m.content }]
+      }));
+
+      const aiResponse = await getGeminiResponse(userMsg, history);
+
+      await addDoc(chatRef, {
+        userId: user.uid,
+        role: 'model',
+        content: aiResponse,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Chat error:", error);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  const handleStartQuiz = async (lesson: Lesson) => {
+    setIsQuizLoading(true);
+    setQuizResult(null);
+    try {
+      const questions = await generateQuiz(lesson.title, lesson.content);
+      setQuizQuestions(questions);
+      setIsQuizActive(true);
+    } catch (error) {
+      console.error("Quiz generation error:", error);
+    } finally {
+      setIsQuizLoading(false);
+    }
+  };
+
+  const handleFinishQuiz = async (score: number, correct: number) => {
+    if (!user || !userData || !selectedLesson) return;
+    
+    setQuizResult({ score, correct });
+    setIsQuizActive(false);
+
+    // Save quiz result
+    await addDoc(collection(db, 'users', user.uid, 'quizResults'), {
+      userId: user.uid,
+      lessonId: selectedLesson.id,
+      score,
+      totalQuestions: quizQuestions.length,
+      correctAnswers: correct,
+      timestamp: serverTimestamp()
+    });
+
+    // If score is good enough (e.g. > 70%), complete the lesson
+    if (score >= 70) {
+      const userRef = doc(db, 'users', user.uid);
+      const newCompleted = [...(userData.completedLessons || [])];
+      if (!newCompleted.includes(selectedLesson.id)) {
+        newCompleted.push(selectedLesson.id);
+        
+        const newXp = (userData.xp || 0) + selectedLesson.xpReward;
+        const newLevel = Math.floor(newXp / 500) + 1;
+        
+        const newBadges = [...(userData.badges || [])];
+        if (newCompleted.length === 1 && !newBadges.includes('first-lesson')) {
+          newBadges.push('first-lesson');
+        }
+        const molBioLessons = LESSONS.filter(l => l.category === 'Biologi Molekuler').map(l => l.id);
+        if (molBioLessons.every(id => newCompleted.includes(id)) && !newBadges.includes('mol-master')) {
+          newBadges.push('mol-master');
+        }
+        if (newLevel >= 5 && !newBadges.includes('level-5')) {
+          newBadges.push('level-5');
+        }
+
+        await updateDoc(userRef, {
+          xp: newXp,
+          level: newLevel,
+          completedLessons: newCompleted,
+          badges: newBadges
+        });
+      }
+    }
+  };
+
+  const completeLesson = async (lesson: Lesson) => {
+    // This is now handled by quiz completion
+  };
+
+  // Personalized Recommendations
+  const getRecommendations = () => {
+    if (!userData) return [];
+    const completed = userData.completedLessons || [];
+    return LESSONS.filter(l => !completed.includes(l.id))
+      .sort((a, b) => {
+        // Prefer lessons close to user level
+        const diffA = Math.abs(a.level - userData.level);
+        const diffB = Math.abs(b.level - userData.level);
+        return diffA - diffB;
+      })
+      .slice(0, 3);
+  };
+
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-bg">
+      <motion.div 
+        animate={{ rotate: 360 }}
+        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+        className="text-accent"
+      >
+        <Brain size={48} />
+      </motion.div>
+    </div>
+  );
+
+  if (!user) return (
+    <div className="h-screen bg-bg flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      <div className="absolute inset-0 atmosphere opacity-20" />
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-md w-full glass-card rounded-3xl p-10 text-center relative z-10"
+      >
+        <div className="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl shadow-accent/20">
+          <Brain size={32} />
+        </div>
+        <div className="text-3xl font-black tracking-tighter text-accent mb-2">DYFALOGY</div>
+        <p className="text-sm text-text-muted mb-8">Platform Belajar & Komunitas Olimpiade Biologi.</p>
+        
+        <button 
+          onClick={signInWithGoogle}
+          className="w-full flex items-center justify-center gap-3 bg-white border border-border py-3.5 px-6 rounded-xl font-bold text-text-main hover:bg-bg transition-all active:scale-95 liquid-button"
+        >
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+          Masuk dengan Google
+        </button>
+      </motion.div>
+    </div>
+  );
+
+  return (
+    <div className="h-screen flex overflow-hidden bg-bg">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      
+      <div className="flex-1 flex flex-col min-w-0 border-r border-border">
+        <Navbar user={userData} onLogout={logout} activeTab={activeTab} onToggleAi={() => setShowAiPanel(!showAiPanel)} />
+        
+        <main className="flex-1 overflow-y-auto p-6">
+          <AnimatePresence mode="wait">
+            {activeTab === 'dashboard' && (
+              <motion.div 
+                key="dashboard"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-6"
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  <div className="lg:col-span-2 space-y-6">
+                    <div className="glass-card rounded-2xl p-6 flex flex-col">
+                      <div className="text-base font-bold mb-4 flex justify-between items-center">
+                        Progress Belajar <span className="text-xs text-accent">Level {userData?.level}</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                        <div className="text-center p-3 bg-white/30 rounded-xl border border-white/50">
+                          <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">XP Total</div>
+                          <div className="font-mono text-xl font-black text-accent">{userData?.xp}</div>
+                        </div>
+                        <div className="text-center p-3 bg-white/30 rounded-xl border border-white/50">
+                          <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Materi</div>
+                          <div className="font-mono text-xl font-black text-accent">{userData?.completedLessons?.length}</div>
+                        </div>
+                        <div className="text-center p-3 bg-white/30 rounded-xl border border-white/50">
+                          <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Lencana</div>
+                          <div className="font-mono text-xl font-black text-accent">{userData?.badges?.length}</div>
+                        </div>
+                        <div className="text-center p-3 bg-white/30 rounded-xl border border-white/50">
+                          <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Rank</div>
+                          <div className="font-mono text-xl font-black text-accent">#12</div>
+                        </div>
+                      </div>
+                      <div className="h-2 bg-gray-100/50 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-accent rounded-full transition-all duration-1000" 
+                          style={{ width: `${Math.min(100, ((userData?.xp % 500) / 500) * 100)}%` }} 
+                        />
+                      </div>
+                      <div className="text-[10px] text-right mt-2 font-bold text-text-muted">
+                        {500 - (userData?.xp % 500)} XP lagi untuk Level {userData?.level + 1}
+                      </div>
+                    </div>
+
+                    <div className="glass-card rounded-2xl p-6">
+                      <div className="text-base font-bold mb-4 flex items-center gap-2">
+                        <Star size={18} className="text-gold" /> Rekomendasi Untukmu
+                      </div>
+                      <div className="grid gap-3">
+                        {getRecommendations().map((lesson) => (
+                          <button
+                            key={lesson.id}
+                            onClick={() => { setSelectedLesson(lesson); setActiveTab('lessons'); }}
+                            className="flex items-center justify-between p-4 bg-white/20 hover:bg-white/40 border border-white/50 rounded-xl transition-all group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-accent/10 rounded-lg flex items-center justify-center text-accent">
+                                <BookOpen size={16} />
+                              </div>
+                              <div className="text-left">
+                                <div className="text-sm font-bold">{lesson.title}</div>
+                                <div className="text-[10px] text-text-muted uppercase tracking-wider">{lesson.category} • LVL {lesson.level}</div>
+                              </div>
+                            </div>
+                            <ChevronRight size={16} className="text-text-muted group-hover:text-accent transition-colors" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="glass-card rounded-2xl p-6">
+                      <div className="text-base font-bold mb-4 flex items-center gap-2">
+                        <Trophy size={18} className="text-gold" /> Lencana Pencapaian
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        {BADGES.map((badge) => {
+                          const isOwned = userData?.badges?.includes(badge.id);
+                          return (
+                            <div 
+                              key={badge.id} 
+                              className={cn(
+                                "aspect-square rounded-xl flex flex-col items-center justify-center text-center p-2 transition-all",
+                                isOwned ? "bg-gold/10 border border-gold/30 badge-glow" : "bg-gray-100/50 border border-transparent opacity-30 grayscale"
+                              )}
+                              title={badge.description}
+                            >
+                              <div className="text-2xl mb-1">{badge.icon}</div>
+                              <div className="text-[8px] font-black uppercase tracking-tighter leading-none">{badge.name}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="glass-card rounded-2xl p-6">
+                      <div className="text-base font-bold mb-4">Statistik Global</div>
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-text-muted">Akurasi</span>
+                          <span className="text-xs font-bold">88%</span>
+                        </div>
+                        <div className="h-1.5 bg-gray-100/50 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: '88%' }} />
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-text-muted">Soal Terjawab</span>
+                          <span className="text-xs font-bold">1.240</span>
+                        </div>
+                        <div className="h-1.5 bg-gray-100/50 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-500 rounded-full" style={{ width: '65%' }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'lessons' && (
+              <motion.div 
+                key="lessons"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                {isQuizActive ? (
+                  <Quiz 
+                    questions={quizQuestions} 
+                    onFinish={handleFinishQuiz} 
+                    onCancel={() => setIsQuizActive(false)} 
+                  />
+                ) : selectedLesson ? (
+                  <div className="max-w-3xl mx-auto space-y-5">
+                    <button 
+                      onClick={() => { setSelectedLesson(null); setQuizResult(null); }}
+                      className="text-accent text-xs font-bold flex items-center gap-1 hover:underline"
+                    >
+                      ← KEMBALI KE DAFTAR
+                    </button>
+                    <div className="glass-card rounded-2xl p-8 space-y-6">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2 py-0.5 bg-accent/10 text-accent text-[10px] font-black rounded uppercase tracking-widest">
+                          {selectedLesson.category}
+                        </span>
+                        <span className="text-text-muted text-[11px] font-mono">{selectedLesson.xpReward} XP</span>
+                      </div>
+                      <h2 className="text-2xl font-black text-text-main tracking-tight">{selectedLesson.title}</h2>
+                      <div className="prose prose-emerald max-w-none text-text-main">
+                        <ReactMarkdown>{selectedLesson.content}</ReactMarkdown>
+                      </div>
+                      
+                      {quizResult ? (
+                        <div className={cn(
+                          "p-6 rounded-2xl text-center space-y-3",
+                          quizResult.score >= 70 ? "bg-emerald-50 border border-emerald-200" : "bg-red-50 border border-red-200"
+                        )}>
+                          <div className="text-2xl font-black">Skor: {quizResult.score.toFixed(0)}%</div>
+                          <p className="text-sm">Kamu menjawab {quizResult.correct} dari {quizQuestions.length} soal dengan benar.</p>
+                          {quizResult.score >= 70 ? (
+                            <p className="text-xs text-emerald-600 font-bold">Selamat! Kamu telah menguasai materi ini.</p>
+                          ) : (
+                            <p className="text-xs text-red-600 font-bold">Ayo coba lagi untuk menguasai materi ini!</p>
+                          )}
+                          <button 
+                            onClick={() => handleStartQuiz(selectedLesson)}
+                            className="bg-accent text-white px-6 py-2 rounded-xl text-sm font-bold liquid-button mt-2"
+                          >
+                            Coba Quiz Lagi
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => handleStartQuiz(selectedLesson)}
+                          disabled={isQuizLoading}
+                          className="w-full py-4 rounded-xl font-bold text-sm transition-all liquid-button bg-accent text-white hover:bg-[#1A4331] shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
+                        >
+                          {isQuizLoading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              Menyiapkan Quiz AI...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles size={18} />
+                              Mulai Quiz AI (10 Soal)
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    <div className="text-base font-bold">Mulai Belajar: Silabus OSP</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {LESSONS.map((lesson) => {
+                        const isCompleted = userData?.completedLessons?.includes(lesson.id);
+                        return (
+                          <button
+                            key={lesson.id}
+                            onClick={() => setSelectedLesson(lesson)}
+                            className="glass-card p-5 rounded-2xl hover:border-accent transition-all text-left group relative overflow-hidden"
+                          >
+                            {isCompleted && (
+                              <div className="absolute top-0 right-0 bg-emerald-500 text-white px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-bl-xl">
+                                Mastered
+                              </div>
+                            )}
+                            <span className="text-[10px] font-black text-accent uppercase tracking-widest mb-1 block">{lesson.category}</span>
+                            <h4 className="text-base font-bold text-text-main mb-2">{lesson.title}</h4>
+                            <p className="text-xs text-text-muted line-clamp-2 mb-4">Materi esensial untuk persiapan OSP Biologi tingkat provinsi.</p>
+                            <div className="flex items-center justify-between pt-4 border-t border-gray-100/50">
+                              <span className="text-[11px] font-mono text-text-muted">LVL {lesson.level} • {lesson.xpReward} XP</span>
+                              <ChevronRight size={14} className="text-text-muted group-hover:text-accent transition-colors" />
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === 'forum' && (
+              <motion.div 
+                key="forum"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <Forum user={userData} />
+              </motion.div>
+            )}
+
+            {activeTab === 'strategies' && (
+              <motion.div 
+                key="strategies"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-5"
+              >
+                <div className="text-base font-bold">Strategi Belajar Efektif</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {STUDY_STRATEGIES.map((strategy, idx) => (
+                    <div key={idx} className="glass-card p-6 rounded-2xl space-y-3">
+                      <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent">
+                        <Zap size={20} />
+                      </div>
+                      <h4 className="text-sm font-bold text-text-main">{strategy.title}</h4>
+                      <p className="text-xs text-text-muted leading-relaxed">{strategy.description}</p>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="bg-sidebar/90 backdrop-blur-xl rounded-3xl p-10 text-white relative overflow-hidden shadow-2xl">
+                  <div className="relative z-10 space-y-4 max-w-lg">
+                    <h3 className="text-2xl font-black tracking-tight">Butuh Rencana Belajar Kustom?</h3>
+                    <p className="text-sm text-white/70 leading-relaxed">Tanyakan pada BioMaster AI untuk membuatkan jadwal belajar yang sesuai dengan target OSP kamu.</p>
+                    <button 
+                      onClick={() => setActiveTab('chat')}
+                      className="bg-accent text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-[#1A4331] transition-all liquid-button shadow-lg shadow-accent/20"
+                    >
+                      Mulai Chat Sekarang
+                    </button>
+                  </div>
+                  <Sparkles className="absolute right-[-20px] bottom-[-20px] w-64 h-64 text-white/5 rotate-12" />
+                </div>
+              </motion.div>
+            )}
+            
+            {activeTab === 'chat' && (
+              <div className="h-full flex flex-col items-center justify-center opacity-40">
+                <MessageSquare size={48} className="mb-4" />
+                <p className="text-sm font-bold">Gunakan Panel AI di Sebelah Kanan</p>
+              </div>
+            )}
+          </AnimatePresence>
+        </main>
+      </div>
+
+      {/* AI Panel (Persistent on Desktop, Toggleable on Mobile) */}
+      <aside className={cn(
+        "w-[300px] glass-nav flex flex-col shrink-0 border-l border-border transition-all duration-300 z-[60]",
+        "fixed inset-y-0 right-0 xl:static bg-white/90 backdrop-blur-2xl",
+        showAiPanel ? "translate-x-0" : "translate-x-full xl:translate-x-0"
+      )}>
+        <div className="p-5 border-b border-border flex justify-between items-center bg-white/10">
+          <div>
+            <div className="text-sm font-black text-text-main">Asisten dyfalogy AI</div>
+            <div className="text-[11px] text-emerald-500 font-bold flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              Online & Siap Menjawab
+            </div>
+          </div>
+          <button onClick={() => setShowAiPanel(false)} className="xl:hidden p-1 text-text-muted"><X size={18} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {chatMessages.length === 0 && (
+            <div className="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-30">
+              <Sparkles size={32} />
+              <p className="text-[11px] font-bold uppercase tracking-widest">Tanya apa saja tentang Bio atau Web ini...</p>
+            </div>
+          )}
+          {chatMessages.map((msg, idx) => (
+            <div key={idx} className={cn(
+              "p-3 rounded-2xl text-[13px] leading-relaxed shadow-sm",
+              msg.role === 'user' 
+                ? "bg-white/50 text-text-main ml-4 border border-white/50" 
+                : "bg-accent/10 text-text-main border-l-4 border-accent mr-4"
+            )}>
+              <ReactMarkdown>{msg.content}</ReactMarkdown>
+            </div>
+          ))}
+          {isAiLoading && (
+            <div className="bg-accent/10 p-3 rounded-2xl border-l-4 border-accent mr-4 flex gap-1">
+              <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" />
+              <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.2s]" />
+              <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.4s]" />
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        <form onSubmit={handleSendMessage} className="p-4 bg-white/20 border-t border-border">
+          <div className="relative">
+            <input 
+              type="text" 
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              placeholder="Tanya apa saja..."
+              className="w-full bg-white/50 border border-border rounded-xl pl-3 pr-10 py-2.5 text-[13px] focus:outline-none focus:border-accent transition-all"
+            />
+            <button 
+              type="submit"
+              disabled={isAiLoading || !inputMessage.trim()}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-accent disabled:opacity-30 p-1 hover:bg-accent/10 rounded-lg transition-all"
+            >
+              <Send size={16} />
+            </button>
+          </div>
+        </form>
+      </aside>
+    </div>
+  );
+}

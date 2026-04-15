@@ -1,0 +1,98 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user progress, level, and preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "level": { "type": "integer", "description": "Current learning level" },
+        "xp": { "type": "integer", "description": "Experience points" },
+        "completedLessons": { "type": "array", "items": { "type": "string" } },
+        "badges": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "ForumTopic": {
+      "title": "Forum Topic",
+      "description": "A discussion topic in the community forum.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "replyCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "authorId"]
+    },
+    "ForumReply": {
+      "title": "Forum Reply",
+      "description": "A reply to a forum topic.",
+      "type": "object",
+      "properties": {
+        "topicId": { "type": "string" },
+        "content": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["topicId", "content", "authorId"]
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "Stores AI chat history for the user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "content"]
+    },
+    "QuizResult": {
+      "title": "Quiz Result",
+      "description": "Stores results of quizzes taken by users.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "lessonId": { "type": "string" },
+        "score": { "type": "number" },
+        "totalQuestions": { "type": "integer" },
+        "correctAnswers": { "type": "integer" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "lessonId", "score"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile and progress"
+    },
+    "/users/{userId}/chatHistory/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "User specific chat history with AI"
+    },
+    "/forumTopics/{topicId}": {
+      "schema": "ForumTopic",
+      "description": "Community discussion topics"
+    },
+    "/forumTopics/{topicId}/replies/{replyId}": {
+      "schema": "ForumReply",
+      "description": "Replies to a specific topic"
+    },
+    "/users/{userId}/quizResults/{resultId}": {
+      "schema": "QuizResult",
+      "description": "User specific quiz results"
+    }
+  }
+}
