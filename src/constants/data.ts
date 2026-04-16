@@ -2,7 +2,9 @@ export interface Lesson {
   id: string;
   title: string;
   category: string;
+  difficulty: 'easy' | 'medium' | 'hard';
   level: number;
+  description: string;
   content: string;
   xpReward: number;
 }
@@ -14,82 +16,104 @@ export interface Badge {
   icon: string;
 }
 
+export const CATEGORIES = [
+  'Biologi Sel & Molekuler',
+  'Anatomi & Fisiologi Tumbuhan',
+  'Anatomi & Fisiologi Hewan',
+  'Biogenetika & Evolusi',
+  'Ekologi',
+  'Etologi',
+  'Biosistematika'
+];
+
 export const LESSONS: Lesson[] = [
   {
     id: 'mol-bio-1',
     title: 'Elektroforesis DNA & SDS-PAGE',
-    category: 'Biologi Molekuler',
+    category: 'Biologi Sel & Molekuler',
+    difficulty: 'medium',
     level: 3,
+    description: 'Teknik pemisahan molekul berbasis ukuran dan muatan.',
     content: `
 ### Elektroforesis DNA
 Teknik untuk memisahkan fragmen DNA berdasarkan ukurannya menggunakan medan listrik. DNA bermuatan negatif akan bergerak menuju kutub positif (anode). Fragmen yang lebih kecil bergerak lebih cepat melalui pori-pori gel agarosa.
 
-### SDS-PAGE (Sodium Dodecyl Sulfate Polyacrylamide Gel Electrophoresis)
+### SDS-PAGE
 Teknik untuk memisahkan protein berdasarkan berat molekulnya. SDS memberikan muatan negatif yang seragam pada protein, sehingga pemisahan murni berdasarkan ukuran saat melewati gel poliakrilamida.
     `,
     xpReward: 200
   },
   {
-    id: 'mol-bio-2',
-    title: 'Blotting Techniques (Southern, Northern, Western)',
-    category: 'Biologi Molekuler',
-    level: 4,
-    content: `
-### Southern Blotting
-Digunakan untuk mendeteksi urutan DNA spesifik dalam sampel DNA. Melibatkan transfer fragmen DNA dari gel ke membran, diikuti dengan hibridisasi probe.
-
-### Northern Blotting
-Mirip dengan Southern, tetapi digunakan untuk mendeteksi RNA. Berguna untuk mempelajari ekspresi gen.
-
-### Western Blotting
-Digunakan untuk mendeteksi protein spesifik menggunakan antibodi. Sangat penting dalam diagnostik dan riset biokimia.
-    `,
-    xpReward: 250
-  },
-  {
-    id: 'mol-bio-3',
-    title: 'PCR & RFLP',
-    category: 'Biologi Molekuler',
-    level: 4,
-    content: `
-### PCR (Polymerase Chain Reaction)
-Teknik amplifikasi DNA secara in vitro. Melibatkan siklus denaturasi, annealing primer, dan ekstensi oleh DNA polimerase termostabil (seperti Taq polymerase).
-
-### RFLP (Restriction Fragment Length Polymorphism)
-Analisis variasi urutan DNA dengan memotong DNA menggunakan enzim restriksi. Perbedaan panjang fragmen menunjukkan polimorfisme genetik.
-    `,
-    xpReward: 300
-  },
-  {
-    id: 'mol-bio-4',
-    title: 'Kromatografi & DNA Fingerprinting',
-    category: 'Biologi Molekuler',
-    level: 5,
-    content: `
-### Kromatografi Ion Exchange & Afinitas
-- **Ion Exchange**: Memisahkan molekul berdasarkan muatan listriknya.
-- **Affinity**: Memisahkan molekul berdasarkan interaksi spesifik (misal: antigen-antibodi atau enzim-substrat).
-
-### DNA Fingerprinting
-Teknik identifikasi individu berdasarkan profil DNA unik mereka, seringkali menggunakan VNTR (Variable Number Tandem Repeats) atau STR (Short Tandem Repeats).
-    `,
-    xpReward: 350
-  },
-  {
-    id: 'cell-bio-1',
-    title: 'Struktur dan Fungsi Sel',
-    category: 'Biologi Sel',
+    id: 'anfis-tum-1',
+    title: 'Struktur Akar dan Batang',
+    category: 'Anatomi & Fisiologi Tumbuhan',
+    difficulty: 'easy',
     level: 1,
-    content: 'Sel adalah unit fungsional terkecil dari kehidupan. Memahami perbedaan antara sel prokariotik dan eukariotik adalah langkah pertama...',
+    description: 'Jaringan penyusun organ vegetatif tumbuhan.',
+    content: `
+Akar dan batang tumbuhan terdiri dari tiga sistem jaringan utama: epidermis, jaringan dasar (korteks dan empulur), serta jaringan vaskuler (xilem dan floem). Akar memiliki endodermis dengan pita Caspary yang mengatur aliran air, sedangkan batang dikotil memiliki kambium vaskuler.
+    `,
     xpReward: 100
   },
   {
-    id: 'genetics-1',
-    title: 'Hukum Mendel',
-    category: 'Genetika',
+    id: 'anfis-wan-1',
+    title: 'Sistem Peredaran Darah',
+    category: 'Anatomi & Fisiologi Hewan',
+    difficulty: 'medium',
     level: 2,
-    content: 'Genetika Mendel berfokus pada bagaimana sifat diwariskan melalui alel dominan dan resesif...',
+    description: 'Mekanisme transportasi nutrisi dan gas pada hewan.',
+    content: `
+Sistem peredaran darah tertutup pada vertebrata melibatkan jantung sebagai pompa. Darah mengalir dari ventrikel ke arteri, kapiler (pertukaran gas), vena, dan kembali ke atrium. Pada mamalia, terdapat sirkulasi ganda: sistemik dan pulmonal.
+    `,
     xpReward: 150
+  },
+  {
+    id: 'genetik-1',
+    title: 'Pewarisan Sifat Mendel',
+    category: 'Biogenetika & Evolusi',
+    difficulty: 'easy',
+    level: 1,
+    description: 'Hukum dasar pewarisan karakter genetik.',
+    content: `
+Hukum Mendel I (Segregasi) menyatakan alel memisah secara bebas saat pembentukan gamet. Hukum Mendel II (Asortasi Bebas) menyatakan pasangan alel memisah secara bebas dari pasangan lain. Rasio fenotip monohibrid dominan-resesif adalah 3:1.
+    `,
+    xpReward: 100
+  },
+  {
+    id: 'ekologi-1',
+    title: 'Aliran Energi & Jaring Makanan',
+    category: 'Ekologi',
+    difficulty: 'easy',
+    level: 1,
+    description: 'Interaksi energi antar organisme dalam ekosistem.',
+    content: `
+Energi masuk ke ekosistem melalui produsen (fotosintesis). Hanya sekitar 10% energi yang berpindah ke tingkat trofik berikutnya (Aturan 10%). Detritivor membantu mendaur ulang nutrisi ke tanah.
+    `,
+    xpReward: 100
+  },
+  {
+    id: 'etologi-1',
+    title: 'Perilaku Belajar Instingtif',
+    category: 'Etologi',
+    difficulty: 'medium',
+    level: 3,
+    description: 'Analisis perilaku hewan berdasarkan evolusi.',
+    content: `
+Perilaku hewan dibedakan menjadi *innate* (insting) dan *learned* (belajar). Contoh perilaku belajar meliputi pembiasaan (habituation), pengondisian klasik (classical conditioning), dan imprinting (perekaman pada fase kritis).
+    `,
+    xpReward: 150
+  },
+  {
+    id: 'sistematika-1',
+    title: 'Prinsip Filogeni',
+    category: 'Biosistematika',
+    difficulty: 'hard',
+    level: 5,
+    description: 'Metode klasifikasi makhluk hidup berdasarkan kekerabatan.',
+    content: `
+Kladistika mengelompokkan organisme berdasarkan nenek moyang bersama. Kladogram menunjukkan hubungan evolusioner menggunakan karakter sinapomorfi. Kelompok monofiletik mencakup semua keturunan dari nenek moyang yang sama.
+    `,
+    xpReward: 250
   }
 ];
 

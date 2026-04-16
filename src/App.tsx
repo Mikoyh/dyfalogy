@@ -28,15 +28,16 @@ import {
   Trophy,
   Star
 } from 'lucide-react';
-import { LESSONS, STUDY_STRATEGIES, BADGES, Lesson, Badge } from './constants/data';
+import { LESSONS, STUDY_STRATEGIES, BADGES, Lesson, Badge, CATEGORIES } from './constants/data';
 import { getGeminiResponse, generateQuiz } from './lib/gemini';
 import ReactMarkdown from 'react-markdown';
 import { cn } from './lib/utils';
 import { AuthPage } from './components/AuthPage';
+import { ProfilePage } from './components/ProfilePage';
 
 // --- Components ---
 
-const Navbar = ({ user, onLogout, activeTab, onToggleAi, onToggleSidebar }: { user: any, onLogout: () => void, activeTab: string, onToggleAi: () => void, onToggleSidebar: () => void }) => (
+const Navbar = ({ user, onLogout, activeTab, onToggleAi, onToggleSidebar, onProfileClick }: { user: any, onLogout: () => void, activeTab: string, onToggleAi: () => void, onToggleSidebar: () => void, onProfileClick: () => void }) => (
   <nav className="h-16 glass-nav flex items-center justify-between px-6 shrink-0 z-50 sticky top-0">
     <div className="flex items-center gap-3">
       <button 
@@ -51,7 +52,8 @@ const Navbar = ({ user, onLogout, activeTab, onToggleAi, onToggleSidebar }: { us
           {activeTab === 'dashboard' ? 'Overview' : 
            activeTab === 'lessons' ? 'Mulai Belajar' : 
            activeTab === 'strategies' ? 'Strategi Belajar' : 
-           activeTab === 'forum' ? 'Komunitas' : 'Chat'}
+           activeTab === 'forum' ? 'Komunitas' : 
+           activeTab === 'profile' ? 'Profil Saya' : 'Chat'}
         </span>
       </div>
     </div>
@@ -69,13 +71,25 @@ const Navbar = ({ user, onLogout, activeTab, onToggleAi, onToggleSidebar }: { us
             <p className="text-sm font-bold text-text-main leading-none">{user.displayName}</p>
             <p className="text-[11px] text-text-muted mt-1">Rank: #12 Nasional</p>
           </div>
-          <div className="relative group cursor-pointer">
-            <img 
-              src={user.photoURL || 'https://picsum.photos/seed/user/100/100'} 
-              className="w-9 h-9 rounded-full border border-white/50 shadow-sm"
-              alt="Profile"
-              referrerPolicy="no-referrer"
-            />
+          <div 
+            onClick={onProfileClick}
+            className="relative group cursor-pointer"
+          >
+            <div 
+              className="w-10 h-10 rounded-full p-0.5"
+              style={{ 
+                background: user.profileBorder && user.profileBorder !== 'none' 
+                  ? `conic-gradient(from 0deg, #FFD700, transparent, #FFD700)` 
+                  : 'transparent' 
+              }}
+            >
+              <img 
+                src={user.photoURL || 'https://picsum.photos/seed/user/100/100'} 
+                className="w-full h-full rounded-full border border-white/50 shadow-sm object-cover"
+                alt="Profile"
+                referrerPolicy="no-referrer"
+              />
+            </div>
             <div className="absolute -top-1 -right-1 bg-gold text-[9px] font-black px-1.5 py-0.5 rounded border border-white badge-glow">
               LVL {user.level || 1}
             </div>
@@ -109,8 +123,9 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, onClose }: { activeTab: stri
       ]
     },
     {
-      label: 'Latihan',
+      label: 'Personal',
       items: [
+        { id: 'profile', icon: User, label: 'Profil Saya' },
         { id: 'strategies', icon: Zap, label: 'Strategi Belajar' },
       ]
     }
@@ -451,13 +466,24 @@ const LandingPage = ({ onLogin }: { onLogin: () => void }) => {
 
 // --- Quiz Component ---
 
-const Quiz = ({ questions, onFinish, onCancel }: { questions: any[], onFinish: (score: number, correct: number) => void, onCancel: () => void }) => {
+const Quiz = ({ questions, timerSeconds, onFinish, onCancel }: { questions: any[], timerSeconds?: number, onFinish: (score: number, correct: number) => void, onCancel: () => void }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(timerSeconds || 0);
 
   const currentQuestion = questions[currentIndex];
+
+  useEffect(() => {
+    if (!timerSeconds) return;
+    if (timeLeft <= 0) {
+      handleNext();
+      return;
+    }
+    const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+    return () => clearInterval(timer);
+  }, [timeLeft, timerSeconds]);
 
   const handleNext = () => {
     if (selectedOption === currentQuestion.correctAnswer) {
@@ -468,6 +494,7 @@ const Quiz = ({ questions, onFinish, onCancel }: { questions: any[], onFinish: (
       setCurrentIndex(currentIndex + 1);
       setSelectedOption(null);
       setShowExplanation(false);
+      if (timerSeconds) setTimeLeft(timerSeconds);
     } else {
       const finalCorrect = score + (selectedOption === currentQuestion.correctAnswer ? 1 : 0);
       const finalScore = (finalCorrect / questions.length) * 100;
@@ -476,10 +503,31 @@ const Quiz = ({ questions, onFinish, onCancel }: { questions: any[], onFinish: (
   };
 
   return (
-    <div className="glass-card rounded-2xl p-8 space-y-6 max-w-2xl mx-auto">
+    <div className="glass-card rounded-2xl p-8 space-y-6 max-w-2xl mx-auto relative overflow-hidden">
+      {timerSeconds && (
+        <div className="absolute top-0 left-0 h-1 bg-accent/20 w-full">
+          <motion.div 
+            className="h-full bg-accent"
+            initial={{ width: '100%' }}
+            animate={{ width: `${(timeLeft / timerSeconds) * 100}%` }}
+            transition={{ duration: 1, ease: 'linear' }}
+          />
+        </div>
+      )}
+      
       <div className="flex justify-between items-center">
         <span className="text-xs font-bold text-accent uppercase tracking-widest">Pertanyaan {currentIndex + 1} / {questions.length}</span>
-        <button onClick={onCancel} className="text-text-muted hover:text-red-500 transition-colors"><X size={18} /></button>
+        <div className="flex items-center gap-4">
+          {timerSeconds && (
+            <span className={cn(
+              "text-xs font-mono font-bold",
+              timeLeft < 5 ? "text-red-500 animate-pulse" : "text-text-muted"
+            )}>
+              {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+            </span>
+          )}
+          <button onClick={onCancel} className="text-text-muted hover:text-red-500 transition-colors"><X size={18} /></button>
+        </div>
       </div>
       
       <div className="h-1.5 bg-gray-100/50 rounded-full overflow-hidden">
@@ -495,11 +543,11 @@ const Quiz = ({ questions, onFinish, onCancel }: { questions: any[], onFinish: (
             disabled={showExplanation}
             onClick={() => setSelectedOption(idx)}
             className={cn(
-              "w-full text-left p-4 rounded-xl border transition-all text-sm",
+              "w-full text-left p-4 rounded-xl border transition-all text-sm group",
               selectedOption === idx 
                 ? "border-accent bg-accent/5 font-bold" 
                 : "border-white/50 bg-white/20 hover:bg-white/40",
-              showExplanation && idx === currentQuestion.correctAnswer && "border-emerald-500 bg-emerald-50/50",
+              showExplanation && idx === currentQuestion.correctAnswer && "border-emerald-500 bg-emerald-50/50 [box-shadow:0_0_20px_rgba(16,185,129,0.2)]",
               showExplanation && selectedOption === idx && idx !== currentQuestion.correctAnswer && "border-red-500 bg-red-50/50"
             )}
           >
@@ -507,13 +555,24 @@ const Quiz = ({ questions, onFinish, onCancel }: { questions: any[], onFinish: (
               <span className="w-6 h-6 rounded-full border border-current flex items-center justify-center text-[10px] shrink-0">
                 {String.fromCharCode(65 + idx)}
               </span>
-              {option}
+              <div className="flex-1">
+                <div>{option}</div>
+                {showExplanation && currentQuestion.optionExplanations && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    className="mt-2 text-[10px] font-normal italic opacity-70 border-t border-current/10 pt-2"
+                  >
+                    {currentQuestion.optionExplanations[idx]}
+                  </motion.div>
+                )}
+              </div>
             </div>
           </button>
         ))}
       </div>
 
-      {showExplanation && (
+      {showExplanation && !currentQuestion.optionExplanations && (
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -539,7 +598,20 @@ const Quiz = ({ questions, onFinish, onCancel }: { questions: any[], onFinish: (
 
 // --- Forum Components ---
 
-const Forum = ({ user }: { user: any }) => {
+const ReactionButton = ({ count, icon, active, onClick }: { count: number, icon: string, active: boolean, onClick: () => void }) => (
+  <button 
+    onClick={onClick}
+    className={cn(
+      "flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold transition-all border",
+      active ? "bg-accent/10 border-accent text-accent scale-105" : "bg-white/20 border-white/50 text-text-muted hover:bg-white/40"
+    )}
+  >
+    <span>{icon}</span>
+    {count > 0 && <span>{count}</span>}
+  </button>
+);
+
+const Forum = ({ user, onProfileClick }: { user: any, onProfileClick: (uid: string) => void }) => {
   const [topics, setTopics] = useState<any[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<any>(null);
   const [replies, setReplies] = useState<any[]>([]);
@@ -547,6 +619,12 @@ const Forum = ({ user }: { user: any }) => {
   const [newTopicContent, setNewTopicContent] = useState('');
   const [newReplyContent, setNewReplyContent] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<any>(null);
+  
+  // Context Menu States
+  const [contextMenuRef, setContextMenuRef] = useState<any>(null);
+  const [activeContextMenu, setActiveContextMenu] = useState<string | null>(null); // Reply ID
+  const longPressTimer = useRef<any>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'forumTopics'), orderBy('createdAt', 'desc'), limit(20));
@@ -566,6 +644,52 @@ const Forum = ({ user }: { user: any }) => {
     }
   }, [selectedTopic]);
 
+  const handleReplyLongPress = (reply: any) => {
+    setActiveContextMenu(reply.id);
+    if (window.navigator.vibrate) window.navigator.vibrate(50);
+  };
+
+  const handleReaction = async (itemId: string, reactionType: string, isTopic: boolean = false) => {
+    if (!user) return;
+    const path = isTopic ? `forumTopics/${itemId}` : `forumTopics/${selectedTopic.id}/replies/${itemId}`;
+    const docRef = doc(db, path);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    const currentReactions = data.reactions || {};
+    const userReactions = currentReactions[reactionType] || [];
+    
+    let newUserReactions;
+    if (userReactions.includes(user.uid)) {
+      newUserReactions = userReactions.filter((id: string) => id !== user.uid);
+    } else {
+      newUserReactions = [...userReactions, user.uid];
+    }
+
+    await updateDoc(docRef, {
+      [`reactions.${reactionType}`]: newUserReactions
+    });
+    setActiveContextMenu(null);
+  };
+
+  const promoteToTopic = async (reply: any) => {
+    if (!user) return;
+    await addDoc(collection(db, 'forumTopics'), {
+      title: `Diskusi Lanjutan: ${reply.content.substring(0, 30)}...`,
+      content: `Diskusi diangkat dari balasan ${reply.authorName}:\n\n"${reply.content}"\n\nLanjutkan diskusi di sini.`,
+      authorId: user.uid,
+      authorName: user.displayName,
+      authorPhoto: user.photoURL,
+      replyCount: 0,
+      createdAt: serverTimestamp(),
+      isPromoted: true,
+      originalTopicId: selectedTopic.id
+    });
+    setSelectedTopic(null);
+    setActiveContextMenu(null);
+  };
+
   const handleCreateTopic = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTopicTitle.trim() || !newTopicContent.trim() || !user) return;
@@ -577,7 +701,12 @@ const Forum = ({ user }: { user: any }) => {
       authorName: user.displayName,
       authorPhoto: user.photoURL,
       replyCount: 0,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
+      reactions: { '❤️': [] }
+    });
+
+    await updateDoc(doc(db, 'users', user.uid), {
+      'stats.forumPosts': increment(1)
     });
 
     setNewTopicTitle('');
@@ -589,24 +718,129 @@ const Forum = ({ user }: { user: any }) => {
     e.preventDefault();
     if (!newReplyContent.trim() || !user || !selectedTopic) return;
 
-    await addDoc(collection(db, 'forumTopics', selectedTopic.id, 'replies'), {
+    const replyData = {
       topicId: selectedTopic.id,
       content: newReplyContent,
       authorId: user.uid,
       authorName: user.displayName,
       authorPhoto: user.photoURL,
-      createdAt: serverTimestamp()
-    });
+      parentId: replyingTo ? replyingTo.id : null,
+      parentAuthor: replyingTo ? replyingTo.authorName : null,
+      createdAt: serverTimestamp(),
+      reactions: { '👍': [] }
+    };
+
+    await addDoc(collection(db, 'forumTopics', selectedTopic.id, 'replies'), replyData);
 
     await updateDoc(doc(db, 'forumTopics', selectedTopic.id), {
       replyCount: increment(1)
     });
 
     setNewReplyContent('');
+    setReplyingTo(null);
+  };
+
+  const renderReplies = (parentId: string | null = null, depth: number = 0) => {
+    const filtered = replies.filter(r => r.parentId === parentId);
+    if (filtered.length === 0) return null;
+
+    return filtered.map(reply => (
+      <div key={reply.id} className={cn("space-y-4", depth > 0 ? "ml-4 border-l-2 border-accent/10 pl-4 py-2" : "")}>
+        <motion.div 
+          layout
+          onPointerDown={() => {
+            longPressTimer.current = setTimeout(() => handleReplyLongPress(reply), 600);
+          }}
+          onPointerUp={() => clearTimeout(longPressTimer.current)}
+          onPointerLeave={() => clearTimeout(longPressTimer.current)}
+          className={cn(
+            "glass-card rounded-2xl p-4 space-y-2 relative transition-all duration-500",
+            activeContextMenu === reply.id ? "scale-105 z-50 ring-2 ring-accent/30" : "hover:border-accent/10"
+          )}
+        >
+          {activeContextMenu === reply.id && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              className="absolute -top-16 left-0 right-0 flex justify-center gap-2 z-[60]"
+            >
+              <div className="bg-white/90 backdrop-blur-xl border border-white/50 rounded-2xl p-2 shadow-2xl flex gap-1 items-center">
+                {['❤️', '🔥', '👏', '😮', '💡'].map(emoji => (
+                  <button 
+                    key={emoji}
+                    onClick={(e) => { e.stopPropagation(); handleReaction(reply.id, emoji); }}
+                    className="p-1.5 hover:bg-accent/10 rounded-lg text-lg transition-transform hover:scale-125"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+                <div className="w-[1px] h-6 bg-border mx-1" />
+                <button 
+                  onClick={() => { setReplyingTo(reply); setActiveContextMenu(null); }}
+                  className="px-3 py-1.5 text-[10px] font-black uppercase text-accent hover:bg-accent/10 rounded-lg"
+                >
+                  Reply
+                </button>
+                <button 
+                  onClick={() => promoteToTopic(reply)}
+                  className="px-3 py-1.5 text-[10px] font-black uppercase text-blue-500 hover:bg-blue-500/10 rounded-lg"
+                >
+                  Discuss
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <div 
+              onClick={() => onProfileClick(reply.authorId)}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              <img src={reply.authorPhoto} className="w-6 h-6 rounded-full border border-white/50" alt="" referrerPolicy="no-referrer" />
+              <div>
+                <span className="text-xs font-bold hover:text-accent transition-colors">{reply.authorName}</span>
+                {reply.parentAuthor && (
+                  <span className="text-[10px] text-text-muted ml-1">membalas <span className="text-accent font-medium">@{reply.parentAuthor}</span></span>
+                )}
+              </div>
+            </div>
+            <div className="text-[9px] text-text-muted">{reply.createdAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+          </div>
+          <p className="text-sm text-text-main leading-relaxed">{reply.content}</p>
+          
+          <div className="flex gap-2">
+            {reply.reactions && Object.entries(reply.reactions).map(([emoji, uids]: [string, any]) => (
+              uids.length > 0 && (
+                <ReactionButton 
+                  key={emoji}
+                  icon={emoji} 
+                  count={uids.length} 
+                  active={uids.includes(user?.uid)}
+                  onClick={() => handleReaction(reply.id, emoji)}
+                />
+              )
+            ))}
+          </div>
+        </motion.div>
+        {renderReplies(reply.id, depth + 1)}
+      </div>
+    ));
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto relative">
+      <AnimatePresence>
+        {activeContextMenu && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setActiveContextMenu(null)}
+            className="fixed inset-0 bg-white/20 backdrop-blur-md z-40 transition-all duration-500"
+          />
+        )}
+      </AnimatePresence>
+
       {selectedTopic ? (
         <div className="space-y-6">
           <button onClick={() => setSelectedTopic(null)} className="text-accent text-xs font-bold flex items-center gap-1 hover:underline">
@@ -614,52 +848,75 @@ const Forum = ({ user }: { user: any }) => {
           </button>
           
           <div className="glass-card rounded-2xl p-6 space-y-4 shadow-xl">
-            <div className="flex items-center gap-3">
-              <img src={selectedTopic.authorPhoto} className="w-10 h-10 rounded-full border border-white/50" alt="" referrerPolicy="no-referrer" />
-              <div>
-                <div className="text-sm font-bold">{selectedTopic.authorName}</div>
-                <div className="text-[10px] text-text-muted">Dibuat pada {selectedTopic.createdAt?.toDate().toLocaleDateString()}</div>
+            <div className="flex items-center justify-between">
+              <div 
+                onClick={() => onProfileClick(selectedTopic.authorId)}
+                className="flex items-center gap-3 cursor-pointer group"
+              >
+                <img src={selectedTopic.authorPhoto} className="w-10 h-10 rounded-full border border-white/50 group-hover:scale-110 transition-transform" alt="" referrerPolicy="no-referrer" />
+                <div>
+                  <div className="text-sm font-bold group-hover:text-accent transition-colors">{selectedTopic.authorName}</div>
+                  <div className="text-[10px] text-text-muted">{selectedTopic.createdAt?.toDate().toLocaleDateString()}</div>
+                </div>
               </div>
+              <button 
+                onClick={() => setReplyingTo(selectedTopic)}
+                className="text-[10px] font-black text-accent uppercase tracking-widest hover:underline"
+              >
+                Balas Topik
+              </button>
             </div>
-            <h2 className="text-xl font-black text-accent">{selectedTopic.title}</h2>
+            <h2 className="text-xl font-black text-accent leading-tight">{selectedTopic.title}</h2>
             <p className="text-sm text-text-main leading-relaxed whitespace-pre-wrap">{selectedTopic.content}</p>
+            
+            <div className="flex gap-2 pt-2">
+               {selectedTopic.reactions && Object.entries(selectedTopic.reactions).map(([emoji, uids]: [string, any]) => (
+                <ReactionButton 
+                  key={emoji}
+                  icon={emoji} 
+                  count={uids.length} 
+                  active={uids.includes(user?.uid)}
+                  onClick={() => handleReaction(selectedTopic.id, emoji, true)}
+                />
+              ))}
+            </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="text-sm font-bold flex items-center gap-2">
               <MessageCircle size={16} /> Balasan ({selectedTopic.replyCount})
             </div>
-            {replies.map((reply) => (
-              <div key={reply.id} className="glass-card rounded-2xl p-4 space-y-2 ml-6 border-l-4 border-accent/30">
-                <div className="flex items-center gap-2">
-                  <img src={reply.authorPhoto} className="w-6 h-6 rounded-full border border-white/50" alt="" referrerPolicy="no-referrer" />
-                  <span className="text-xs font-bold">{reply.authorName}</span>
-                </div>
-                <p className="text-sm text-text-main">{reply.content}</p>
-              </div>
-            ))}
+            {renderReplies(null)}
           </div>
 
-          <form onSubmit={handleCreateReply} className="glass-card rounded-xl p-4 flex gap-2">
-            <input 
-              type="text" 
-              value={newReplyContent}
-              onChange={(e) => setNewReplyContent(e.target.value)}
-              placeholder="Tulis balasan..."
-              className="flex-1 bg-white/50 border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-accent"
-            />
-            <button type="submit" className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-bold liquid-button">
-              Kirim
-            </button>
+          <form onSubmit={handleCreateReply} className="sticky bottom-6 glass-card rounded-2xl p-4 flex flex-col gap-3 shadow-2xl z-30">
+            {replyingTo && (
+              <div className="flex justify-between items-center bg-accent/10 px-3 py-1.5 rounded-xl border border-accent/20">
+                <span className="text-[10px] font-bold text-accent">Membalas @{replyingTo.authorName}</span>
+                <button onClick={() => setReplyingTo(null)} className="text-text-muted hover:text-red-500"><X size={12} /></button>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                value={newReplyContent}
+                onChange={(e) => setNewReplyContent(e.target.value)}
+                placeholder={replyingTo ? "Balas diskusi..." : "Tulis balasan publik..."}
+                className="flex-1 bg-white/50 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent transition-all"
+              />
+              <button type="submit" className="bg-accent text-white px-6 py-3 rounded-xl text-sm font-bold liquid-button">
+                Kirim
+              </button>
+            </div>
           </form>
         </div>
       ) : (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-black">Diskusi Komunitas</h2>
+            <h2 className="text-xl font-black tracking-tight">Diskusi Komunitas</h2>
             <button 
               onClick={() => setIsCreating(!isCreating)}
-              className="bg-accent text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 liquid-button"
+              className="bg-accent text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 liquid-button shadow-lg shadow-accent/20"
             >
               {isCreating ? <X size={16} /> : <Plus size={16} />}
               {isCreating ? 'Batal' : 'Topik Baru'}
@@ -668,51 +925,70 @@ const Forum = ({ user }: { user: any }) => {
 
           {isCreating && (
             <motion.form 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
               onSubmit={handleCreateTopic} 
-              className="glass-card rounded-2xl p-6 space-y-4"
+              className="glass-card rounded-3xl p-8 space-y-4 border border-accent/10"
             >
               <input 
                 type="text" 
                 value={newTopicTitle}
                 onChange={(e) => setNewTopicTitle(e.target.value)}
-                placeholder="Judul Topik"
-                className="w-full bg-white/50 border border-border rounded-lg px-4 py-2 text-sm font-bold focus:outline-none focus:border-accent"
+                placeholder="Judul Topik yang Menarik"
+                className="w-full bg-white/50 border border-border rounded-xl px-5 py-3 text-sm font-bold focus:outline-none focus:border-accent"
               />
               <textarea 
                 value={newTopicContent}
                 onChange={(e) => setNewTopicContent(e.target.value)}
-                placeholder="Apa yang ingin kamu diskusikan?"
-                rows={4}
-                className="w-full bg-white/50 border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-accent"
+                placeholder="Deskripsikan apa yang ingin kamu diskusikan atau tanyakan..."
+                rows={5}
+                className="w-full bg-white/50 border border-border rounded-xl px-5 py-3 text-sm focus:outline-none focus:border-accent resize-none"
               />
-              <button type="submit" className="w-full bg-accent text-white py-3 rounded-lg font-bold liquid-button">
-                Posting Topik
+              <button type="submit" className="w-full bg-accent text-white py-4 rounded-xl font-bold liquid-button text-sm">
+                Posting ke Komunitas
               </button>
             </motion.form>
           )}
 
           <div className="grid gap-4">
             {topics.map((topic) => (
-              <button
+              <motion.div
+                layout
                 key={topic.id}
-                onClick={() => setSelectedTopic(topic)}
-                className="glass-card rounded-xl p-5 text-left hover:border-accent transition-all group"
+                className="glass-card rounded-2xl p-6 text-left hover:border-accent/40 transition-all group relative overflow-hidden"
               >
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-2">
-                    <img src={topic.authorPhoto} className="w-6 h-6 rounded-full" alt="" referrerPolicy="no-referrer" />
-                    <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">{topic.authorName}</span>
+                {topic.isPromoted && (
+                  <div className="absolute top-0 right-0 bg-blue-500 text-white px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-bl-xl shadow-lg">
+                    HOT DISCUSSION
                   </div>
-                  <div className="text-[10px] font-mono text-text-muted">{topic.createdAt?.toDate().toLocaleDateString()}</div>
+                )}
+                <div className="flex justify-between items-start mb-4">
+                  <div 
+                    onClick={() => onProfileClick(topic.authorId)}
+                    className="flex items-center gap-3 cursor-pointer z-10"
+                  >
+                    <img src={topic.authorPhoto} className="w-8 h-8 rounded-full border border-white/50" alt="" referrerPolicy="no-referrer" />
+                    <div>
+                      <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider hover:text-accent transition-colors block">{topic.authorName}</span>
+                      <span className="text-[9px] text-text-muted mt-0.5 block">{topic.createdAt?.toDate().toLocaleDateString()}</span>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-base font-bold text-text-main group-hover:text-accent transition-colors mb-2">{topic.title}</h3>
-                <p className="text-xs text-text-muted line-clamp-2 mb-4">{topic.content}</p>
-                <div className="flex items-center gap-4 text-[10px] font-bold text-text-muted uppercase tracking-widest">
-                  <span className="flex items-center gap-1"><MessageCircle size={12} /> {topic.replyCount} Balasan</span>
+                <div onClick={() => setSelectedTopic(topic)} className="cursor-pointer space-y-2">
+                  <h3 className="text-lg font-bold text-text-main group-hover:text-accent transition-colors leading-snug">{topic.title}</h3>
+                  <p className="text-sm text-text-muted line-clamp-2 leading-relaxed">{topic.content}</p>
                 </div>
-              </button>
+                <div className="flex items-center gap-5 mt-6 pt-4 border-t border-white/20">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold text-text-muted uppercase tracking-widest">
+                    <MessageCircle size={14} className="text-accent" /> {topic.replyCount} Balasan
+                  </span>
+                  <div className="flex gap-1">
+                    {topic.reactions && Object.entries(topic.reactions).slice(0, 3).map(([emoji, uids]: [string, any]) => (
+                      uids.length > 0 && <span key={emoji} className="text-[10px]">{emoji}</span>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -837,6 +1113,10 @@ export default function App() {
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [quizConfig, setQuizConfig] = useState({ count: 10, timer: 60 });
+  const [activeContextMenu, setActiveContextMenu] = useState<string | null>(null);
   
   // Quiz states
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
@@ -931,11 +1211,12 @@ export default function App() {
     setIsQuizLoading(true);
     setQuizResult(null);
     try {
-      const questions = await generateQuiz(lesson.title, lesson.content);
+      const questions = await generateQuiz(lesson.title, lesson.content, quizConfig.count);
       setQuizQuestions(questions);
       setIsQuizActive(true);
     } catch (error) {
       console.error("Quiz generation error:", error);
+      alert('Gagal membuat quiz. Pastikan API Key Gemini sudah terpasang.');
     } finally {
       setIsQuizLoading(false);
     }
@@ -971,7 +1252,7 @@ export default function App() {
         if (newCompleted.length === 1 && !newBadges.includes('first-lesson')) {
           newBadges.push('first-lesson');
         }
-        const molBioLessons = LESSONS.filter(l => l.category === 'Biologi Molekuler').map(l => l.id);
+        const molBioLessons = LESSONS.filter(l => l.category === 'Biologi Sel & Molekuler').map(l => l.id);
         if (molBioLessons.every(id => newCompleted.includes(id)) && !newBadges.includes('mol-master')) {
           newBadges.push('mol-master');
         }
@@ -1043,10 +1324,38 @@ export default function App() {
           activeTab={activeTab} 
           onToggleAi={() => setShowAiPanel(!showAiPanel)} 
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          onProfileClick={() => setActiveTab('profile')}
         />
         
         <main className="flex-1 overflow-y-auto p-6">
           <AnimatePresence mode="wait">
+            {viewingProfileId && (
+              <motion.div
+                key="viewing-profile"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="fixed inset-0 z-[100] bg-bg overflow-y-auto p-6"
+              >
+                <ProfilePage 
+                  userId={viewingProfileId} 
+                  isOwnProfile={viewingProfileId === user.uid} 
+                  onClose={() => setViewingProfileId(null)}
+                />
+              </motion.div>
+            )}
+
+            {activeTab === 'profile' && (
+              <motion.div 
+                key="profile"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <ProfilePage userId={user.uid} isOwnProfile={true} />
+              </motion.div>
+            )}
+
             {activeTab === 'dashboard' && (
               <motion.div 
                 key="dashboard"
@@ -1176,6 +1485,7 @@ export default function App() {
                 {isQuizActive ? (
                   <Quiz 
                     questions={quizQuestions} 
+                    timerSeconds={quizConfig.timer}
                     onFinish={handleFinishQuiz} 
                     onCancel={() => setIsQuizActive(false)} 
                   />
@@ -1183,85 +1493,153 @@ export default function App() {
                   <div className="max-w-3xl mx-auto space-y-5">
                     <button 
                       onClick={() => { setSelectedLesson(null); setQuizResult(null); }}
-                      className="text-accent text-xs font-bold flex items-center gap-1 hover:underline"
+                      className="text-accent text-xs font-bold flex items-center gap-1 hover:underline px-2"
                     >
                       ← KEMBALI KE DAFTAR
                     </button>
-                    <div className="glass-card rounded-2xl p-8 space-y-6">
+                    <div className="glass-card rounded-3xl p-8 space-y-6">
                       <div className="flex items-center justify-between">
-                        <span className="px-2 py-0.5 bg-accent/10 text-accent text-[10px] font-black rounded uppercase tracking-widest">
-                          {selectedLesson.category}
-                        </span>
-                        <span className="text-text-muted text-[11px] font-mono">{selectedLesson.xpReward} XP</span>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 bg-accent/10 text-accent text-[10px] font-black rounded uppercase tracking-widest">
+                            {selectedLesson.category}
+                          </span>
+                          <span className={cn(
+                            "px-2 py-0.5 text-[10px] font-black rounded uppercase tracking-widest",
+                            selectedLesson.difficulty === 'easy' ? "bg-emerald-100 text-emerald-600" :
+                            selectedLesson.difficulty === 'medium' ? "bg-amber-100 text-amber-600" :
+                            "bg-red-100 text-red-600"
+                          )}>
+                            {selectedLesson.difficulty}
+                          </span>
+                        </div>
+                        <span className="text-text-muted text-[11px] font-mono font-bold tracking-tighter">{selectedLesson.xpReward} XP</span>
                       </div>
-                      <h2 className="text-2xl font-black text-text-main tracking-tight">{selectedLesson.title}</h2>
-                      <div className="prose prose-emerald max-w-none text-text-main">
+                      <h2 className="text-3xl font-black text-text-main tracking-tight leading-tight">{selectedLesson.title}</h2>
+                      <div className="prose prose-emerald max-w-none text-text-main leading-relaxed">
                         <ReactMarkdown>{selectedLesson.content}</ReactMarkdown>
                       </div>
                       
-                      {quizResult ? (
-                        <div className={cn(
-                          "p-6 rounded-2xl text-center space-y-3",
-                          quizResult.score >= 70 ? "bg-emerald-50 border border-emerald-200" : "bg-red-50 border border-red-200"
-                        )}>
-                          <div className="text-2xl font-black">Skor: {quizResult.score.toFixed(0)}%</div>
-                          <p className="text-sm">Kamu menjawab {quizResult.correct} dari {quizQuestions.length} soal dengan benar.</p>
-                          {quizResult.score >= 70 ? (
-                            <p className="text-xs text-emerald-600 font-bold">Selamat! Kamu telah menguasai materi ini.</p>
-                          ) : (
-                            <p className="text-xs text-red-600 font-bold">Ayo coba lagi untuk menguasai materi ini!</p>
-                          )}
+                      <div className="pt-6 border-t border-white/20">
+                        <div className="text-sm font-bold mb-4 flex items-center gap-2">
+                          <Zap size={18} className="text-accent" /> Kustomisasi Quiz AI
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                           <div>
+                            <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest block mb-2">Jumlah Soal</label>
+                            <select 
+                              value={quizConfig.count}
+                              onChange={(e) => setQuizConfig({...quizConfig, count: parseInt(e.target.value)})}
+                              className="w-full bg-white/50 border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent"
+                            >
+                              {[5, 10, 15, 20].map(n => <option key={n} value={n}>{n} Soal</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest block mb-2">Timer per Soal</label>
+                            <select 
+                              value={quizConfig.timer}
+                              onChange={(e) => setQuizConfig({...quizConfig, timer: parseInt(e.target.value)})}
+                              className="w-full bg-white/50 border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-accent"
+                            >
+                              <option value="0">Tanpa Waktu</option>
+                              <option value="30">30 Detik</option>
+                              <option value="60">60 Detik</option>
+                              <option value="120">120 Detik</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {quizResult ? (
+                          <div className={cn(
+                            "p-6 rounded-2xl text-center space-y-4 shadow-xl",
+                            quizResult.score >= 70 ? "bg-emerald-50 border border-emerald-200" : "bg-red-50 border border-red-200"
+                          )}>
+                            <div className="text-3xl font-black">{quizResult.score.toFixed(0)}%</div>
+                            <p className="text-sm font-medium">Kamu menjawab {quizResult.correct} dari {quizConfig.count} soal dengan benar.</p>
+                            {quizResult.score >= 70 ? (
+                              <p className="text-xs text-emerald-600 font-bold uppercase tracking-widest">MASTERED! +{selectedLesson.xpReward} XP</p>
+                            ) : (
+                              <p className="text-xs text-red-600 font-bold uppercase tracking-widest">Ayo coba lagi untuk menguasai materi!</p>
+                            )}
+                            <button 
+                              onClick={() => handleStartQuiz(selectedLesson)}
+                              className="bg-accent text-white px-8 py-3 rounded-2xl text-sm font-black liquid-button shadow-lg shadow-accent/20"
+                            >
+                              Coba Quiz Lagi
+                            </button>
+                          </div>
+                        ) : (
                           <button 
                             onClick={() => handleStartQuiz(selectedLesson)}
-                            className="bg-accent text-white px-6 py-2 rounded-xl text-sm font-bold liquid-button mt-2"
+                            disabled={isQuizLoading}
+                            className="w-full py-5 rounded-2xl font-black text-sm tracking-tight transition-all liquid-button bg-accent text-white hover:bg-[#1A4331] shadow-xl shadow-accent/30 flex items-center justify-center gap-3"
                           >
-                            Coba Quiz Lagi
+                            {isQuizLoading ? (
+                              <>
+                                <div className="w-5 h-5 border-[3px] border-white/30 border-t-white rounded-full animate-spin" />
+                                Menyiapkan Quiz AI Khusus...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles size={20} />
+                                MULAI QUIZ AI ({quizConfig.count} SOAL)
+                              </>
+                            )}
                           </button>
-                        </div>
-                      ) : (
-                        <button 
-                          onClick={() => handleStartQuiz(selectedLesson)}
-                          disabled={isQuizLoading}
-                          className="w-full py-4 rounded-xl font-bold text-sm transition-all liquid-button bg-accent text-white hover:bg-[#1A4331] shadow-lg shadow-accent/20 flex items-center justify-center gap-2"
-                        >
-                          {isQuizLoading ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                              Menyiapkan Quiz AI...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles size={18} />
-                              Mulai Quiz AI (10 Soal)
-                            </>
-                          )}
-                        </button>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-5">
-                    <div className="text-base font-bold">Mulai Belajar: Silabus OSP</div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {LESSONS.map((lesson) => {
+                  <div className="space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="text-2xl font-black tracking-tight">Kurikulum OSP 2026</div>
+                      <div className="flex flex-wrap gap-2">
+                         {['All', ...CATEGORIES].map(cat => (
+                           <button
+                             key={cat}
+                             onClick={() => setActiveCategory(cat)}
+                             className={cn(
+                               "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                               activeCategory === cat ? "bg-accent text-white shadow-lg shadow-accent/20" : "bg-white/40 text-text-muted hover:bg-white/60 border border-white/50"
+                             )}
+                           >
+                             {cat}
+                           </button>
+                         ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {LESSONS.filter(l => activeCategory === 'All' || l.category === activeCategory).map((lesson) => {
                         const isCompleted = userData?.completedLessons?.includes(lesson.id);
                         return (
                           <button
                             key={lesson.id}
                             onClick={() => setSelectedLesson(lesson)}
-                            className="glass-card p-5 rounded-2xl hover:border-accent transition-all text-left group relative overflow-hidden"
+                            className="glass-card p-6 rounded-3xl hover:border-accent/40 transition-all text-left group relative overflow-hidden"
                           >
                             {isCompleted && (
-                              <div className="absolute top-0 right-0 bg-emerald-500 text-white px-3 py-1 text-[8px] font-black uppercase tracking-widest rounded-bl-xl">
+                              <div className="absolute top-0 right-0 bg-emerald-500 text-white px-4 py-1.5 text-[8px] font-black uppercase tracking-widest rounded-bl-2xl shadow-lg">
                                 Mastered
                               </div>
                             )}
-                            <span className="text-[10px] font-black text-accent uppercase tracking-widest mb-1 block">{lesson.category}</span>
-                            <h4 className="text-base font-bold text-text-main mb-2">{lesson.title}</h4>
-                            <p className="text-xs text-text-muted line-clamp-2 mb-4">Materi esensial untuk persiapan OSP Biologi tingkat provinsi.</p>
-                            <div className="flex items-center justify-between pt-4 border-t border-gray-100/50">
-                              <span className="text-[11px] font-mono text-text-muted">LVL {lesson.level} • {lesson.xpReward} XP</span>
-                              <ChevronRight size={14} className="text-text-muted group-hover:text-accent transition-colors" />
+                            <div className="mb-4">
+                              <span className="text-[10px] font-black text-accent uppercase tracking-widest mb-1 block">{lesson.category}</span>
+                              <h4 className="text-lg font-black text-text-main leading-tight group-hover:text-accent transition-colors">{lesson.title}</h4>
+                            </div>
+                            <p className="text-xs text-text-muted line-clamp-2 mb-6 leading-relaxed">{lesson.description}</p>
+                            <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                              <div className="flex items-center gap-3">
+                                <span className="text-[9px] font-black text-text-muted uppercase tracking-widest px-2 py-1 bg-white/30 rounded-lg">LVL {lesson.level}</span>
+                                <span className={cn(
+                                  "text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg",
+                                  lesson.difficulty === 'easy' ? "text-emerald-600 bg-emerald-50" :
+                                  lesson.difficulty === 'medium' ? "text-amber-600 bg-amber-50" :
+                                  "text-red-600 bg-red-50"
+                                )}>{lesson.difficulty}</span>
+                              </div>
+                              <div className="text-[10px] font-bold text-accent group-hover:translate-x-1 transition-transform">PELAJARI SEKARANG →</div>
                             </div>
                           </button>
                         );
@@ -1279,7 +1657,7 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
               >
-                <Forum user={userData} />
+                <Forum user={userData} onProfileClick={(uid) => setViewingProfileId(uid)} />
               </motion.div>
             )}
 
