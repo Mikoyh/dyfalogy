@@ -35,16 +35,24 @@ import { cn } from './lib/utils';
 
 // --- Components ---
 
-const Navbar = ({ user, onLogout, activeTab, onToggleAi }: { user: any, onLogout: () => void, activeTab: string, onToggleAi: () => void }) => (
+const Navbar = ({ user, onLogout, activeTab, onToggleAi, onToggleSidebar }: { user: any, onLogout: () => void, activeTab: string, onToggleAi: () => void, onToggleSidebar: () => void }) => (
   <nav className="h-16 glass-nav flex items-center justify-between px-6 shrink-0 z-50 sticky top-0">
-    <div className="text-sm font-medium flex items-center gap-2">
-      <span className="text-text-muted">dyfalogy /</span> 
-      <span className="font-bold text-accent">
-        {activeTab === 'dashboard' ? 'Overview' : 
-         activeTab === 'lessons' ? 'Mulai Belajar' : 
-         activeTab === 'strategies' ? 'Strategi Belajar' : 
-         activeTab === 'forum' ? 'Komunitas' : 'Chat'}
-      </span>
+    <div className="flex items-center gap-3">
+      <button 
+        onClick={onToggleSidebar}
+        className="lg:hidden p-2 text-accent hover:bg-accent/10 rounded-full transition-all"
+      >
+        <Menu size={20} />
+      </button>
+      <div className="text-sm font-medium flex items-center gap-2">
+        <span className="text-text-muted hidden sm:inline">dyfalogy /</span> 
+        <span className="font-bold text-accent">
+          {activeTab === 'dashboard' ? 'Overview' : 
+           activeTab === 'lessons' ? 'Mulai Belajar' : 
+           activeTab === 'strategies' ? 'Strategi Belajar' : 
+           activeTab === 'forum' ? 'Komunitas' : 'Chat'}
+        </span>
+      </div>
     </div>
     
     <div className="flex items-center gap-4">
@@ -83,7 +91,7 @@ const Navbar = ({ user, onLogout, activeTab, onToggleAi }: { user: any, onLogout
   </nav>
 );
 
-const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (t: string) => void }) => {
+const Sidebar = ({ activeTab, setActiveTab, isOpen, onClose }: { activeTab: string, setActiveTab: (t: string) => void, isOpen: boolean, onClose: () => void }) => {
   const groups = [
     {
       label: 'Kurikulum',
@@ -107,42 +115,336 @@ const Sidebar = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab:
     }
   ];
 
-  return (
-    <aside className="w-[240px] glass-sidebar text-white flex flex-col p-5 shrink-0">
-      <div className="text-2xl font-extrabold tracking-tighter text-[#74C69D] mb-10 flex items-center gap-2">
-        <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center shadow-lg shadow-accent/20">
-          <Brain size={18} />
+  const content = (
+    <div className="w-[260px] h-full glass-sidebar text-white flex flex-col p-6 shrink-0 relative">
+      <button 
+        onClick={onClose}
+        className="lg:hidden absolute top-6 right-6 p-1 text-white/50 hover:text-white transition-colors"
+      >
+        <X size={20} />
+      </button>
+
+      <div className="text-2xl font-extrabold tracking-tighter text-[#74C69D] mb-10 flex items-center gap-3">
+        <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-xl shadow-accent/30">
+          <Brain size={22} />
         </div>
         DYFALOGY
       </div>
       
-      <div className="space-y-6">
+      <div className="space-y-8">
         {groups.map((group) => (
-          <div key={group.label} className="space-y-3">
-            <div className="text-[10px] font-bold uppercase tracking-widest text-[#40916C] opacity-70">
+          <div key={group.label} className="space-y-4">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-[#40916C] opacity-60 px-3">
               {group.label}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {group.items.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => { setActiveTab(item.id); onClose(); }}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all liquid-button",
+                    "w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm transition-all duration-300 liquid-button",
                     activeTab === item.id 
-                      ? "bg-accent text-white shadow-lg shadow-accent/20" 
+                      ? "bg-accent text-white shadow-xl shadow-accent/30 scale-[1.02]" 
                       : "text-white/60 hover:bg-white/10 hover:text-white"
                   )}
                 >
-                  <item.icon size={16} />
-                  {item.label}
+                  <item.icon size={18} />
+                  <span className="font-medium">{item.label}</span>
                 </button>
               ))}
             </div>
           </div>
         ))}
       </div>
-    </aside>
+
+      <div className="mt-auto pt-6 border-t border-white/10">
+        <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+          <div className="text-[10px] font-bold text-accent uppercase tracking-widest mb-2">Target OSP 2026</div>
+          <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: '65%' }}
+              className="h-full bg-accent"
+            />
+          </div>
+          <div className="text-[9px] text-white/40 mt-2">65% Persiapan Selesai</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:block h-full">
+        {content}
+      </div>
+
+      {/* Mobile Sidebar */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md z-[70] lg:hidden"
+            />
+            <motion.div 
+              initial={{ x: -260 }}
+              animate={{ x: 0 }}
+              exit={{ x: -260 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 z-[80] lg:hidden"
+            >
+              {content}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+// --- Landing Page Component ---
+
+const LandingPage = ({ onLogin }: { onLogin: () => void }) => {
+  const features = [
+    {
+      icon: Sparkles,
+      title: "AI Tutor 24/7",
+      desc: "Tanya apa saja tentang Biologi Sel, Genetika, hingga Ekologi. AI kami siap menjawab dengan penjelasan mendalam."
+    },
+    {
+      icon: Trophy,
+      title: "Kurikulum OSP",
+      desc: "Materi yang disusun khusus sesuai silabus Olimpiade Sains Nasional tingkat Provinsi."
+    },
+    {
+      icon: Zap,
+      title: "Quiz Adaptif",
+      desc: "Latihan soal yang dibuat oleh AI untuk menguji pemahamanmu secara real-time."
+    },
+    {
+      icon: Users,
+      title: "Forum Komunitas",
+      desc: "Berdiskusi dengan sesama pejuang medali dari seluruh Indonesia."
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-bg text-text-main selection:bg-accent selection:text-white">
+      <div className="atmosphere fixed inset-0 opacity-40" />
+      
+      {/* Navigation */}
+      <nav className="fixed top-0 inset-x-0 h-20 glass-nav z-[100] flex items-center justify-between px-6 lg:px-12">
+        <div className="flex items-center gap-2 text-2xl font-black tracking-tighter text-accent">
+          <Brain className="w-8 h-8" />
+          DYFALOGY
+        </div>
+        <div className="flex items-center gap-6">
+          <button onClick={onLogin} className="hidden md:block text-sm font-bold hover:text-accent transition-colors">Masuk</button>
+          <button 
+            onClick={onLogin}
+            className="bg-accent text-white px-6 py-2.5 rounded-full text-sm font-bold liquid-button shadow-lg shadow-accent/20"
+          >
+            Mulai Belajar
+          </button>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative pt-40 pb-20 px-6 flex flex-col items-center text-center overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="max-w-4xl space-y-6 relative z-10"
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-bold tracking-widest uppercase mb-4">
+            <Star size={14} className="fill-accent" />
+            Platform Persiapan OSP Biologi #1
+          </div>
+          <h1 className="text-5xl md:text-8xl font-black tracking-tight leading-[0.9] text-text-main">
+            Kuasai Biologi,<br />
+            <span className="text-accent">Taklukkan Medali.</span>
+          </h1>
+          <p className="text-lg md:text-xl text-text-muted max-w-2xl mx-auto leading-relaxed">
+            Platform belajar paling powerful untuk persiapan Olimpiade Biologi. Dilengkapi AI Tutor, Quiz Adaptif, dan Komunitas Pejuang Medali.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
+            <button 
+              onClick={onLogin}
+              className="w-full sm:w-auto bg-accent text-white px-10 py-5 rounded-2xl text-lg font-black liquid-button shadow-2xl shadow-accent/30 flex items-center justify-center gap-3"
+            >
+              Daftar Gratis Sekarang
+              <ChevronRight size={20} />
+            </button>
+            <button className="w-full sm:w-auto px-10 py-5 rounded-2xl text-lg font-bold border border-border bg-white/50 backdrop-blur-sm hover:bg-white/80 transition-all">
+              Lihat Demo
+            </button>
+          </div>
+        </motion.div>
+
+        {/* Hero Preview Image/Mockup */}
+        <motion.div
+          initial={{ opacity: 0, y: 100 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 1 }}
+          className="mt-20 w-full max-w-6xl mx-auto relative"
+        >
+          <div className="aspect-video rounded-3xl overflow-hidden border border-white/60 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.15)] liquid-glass relative">
+            <div className="absolute inset-0 bg-gradient-to-tr from-accent/5 to-transparent" />
+            <img 
+              src="https://picsum.photos/seed/biology/1920/1080" 
+              className="w-full h-full object-cover opacity-80 mix-blend-overlay"
+              alt="Dashboard Preview"
+              referrerPolicy="no-referrer"
+            />
+            {/* Floating UI Elements for effect */}
+            <div className="absolute top-10 left-10 w-64 h-32 glass-card rounded-2xl p-4 hidden lg:block animate-bounce [animation-duration:4s]">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">Live Quiz</span>
+              </div>
+              <div className="text-sm font-bold">Struktur Sel & Organel</div>
+              <div className="mt-2 h-1 bg-accent/20 rounded-full overflow-hidden">
+                <div className="w-2/3 h-full bg-accent" />
+              </div>
+            </div>
+            <div className="absolute bottom-10 right-10 w-72 h-40 glass-card rounded-2xl p-4 hidden lg:block animate-bounce [animation-duration:5s] [animation-delay:1s]">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles size={14} className="text-accent" />
+                <span className="text-[10px] font-bold uppercase tracking-widest opacity-50">AI Assistant</span>
+              </div>
+              <p className="text-xs italic text-text-muted">"Elektroforesis DNA bekerja berdasarkan perbedaan muatan dan ukuran molekul..."</p>
+            </div>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Features Grid */}
+      <section className="py-32 px-6 max-w-7xl mx-auto">
+        <div className="text-center space-y-4 mb-20">
+          <h2 className="text-3xl md:text-5xl font-black tracking-tight">Semua yang Kamu Butuhkan.</h2>
+          <p className="text-text-muted max-w-xl mx-auto">Dirancang untuk efektivitas belajar maksimal dengan teknologi AI terbaru.</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {features.map((f, i) => (
+            <motion.div
+              key={i}
+              whileHover={{ y: -10 }}
+              className="glass-card p-8 rounded-3xl space-y-4 border border-white/60"
+            >
+              <div className="w-12 h-12 bg-accent/10 rounded-2xl flex items-center justify-center text-accent">
+                <f.icon size={24} />
+              </div>
+              <h3 className="text-xl font-bold">{f.title}</h3>
+              <p className="text-sm text-text-muted leading-relaxed">{f.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Tester / Preview Section */}
+      <section className="py-32 px-6 bg-accent/5 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+          <div className="space-y-8">
+            <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-none">Coba Tester Materi & Quiz AI.</h2>
+            <p className="text-lg text-text-muted leading-relaxed">
+              Jangan hanya percaya kata kami. Lihat bagaimana AI kami merangkum materi kompleks seperti <span className="text-accent font-bold italic">Biologi Sel Molekuler</span> menjadi poin-poin yang mudah dipahami.
+            </p>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 p-4 bg-white/40 backdrop-blur-md rounded-2xl border border-white/60">
+                <div className="w-10 h-10 bg-emerald-500/20 text-emerald-600 rounded-xl flex items-center justify-center">
+                  <Award size={20} />
+                </div>
+                <span className="font-bold">Materi Terupdate Sesuai Silabus IBO</span>
+              </div>
+              <div className="flex items-center gap-4 p-4 bg-white/40 backdrop-blur-md rounded-2xl border border-white/60">
+                <div className="w-10 h-10 bg-gold/20 text-gold rounded-xl flex items-center justify-center">
+                  <Trophy size={20} />
+                </div>
+                <span className="font-bold">Latihan Soal Setara Tingkat Nasional</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="relative">
+            <div className="glass-card rounded-3xl p-8 border border-white/80 shadow-2xl relative z-10">
+              <div className="flex items-center gap-2 mb-6">
+                <div className="w-3 h-3 rounded-full bg-red-400" />
+                <div className="w-3 h-3 rounded-full bg-amber-400" />
+                <div className="w-3 h-3 rounded-full bg-emerald-400" />
+              </div>
+              <div className="space-y-6">
+                <div className="p-4 bg-accent/10 rounded-2xl border border-accent/20">
+                  <div className="text-[10px] font-bold text-accent uppercase tracking-widest mb-2">Contoh Soal AI</div>
+                  <p className="text-sm font-bold leading-relaxed">Manakah dari berikut ini yang merupakan fungsi utama dari Retikulum Endoplasma Kasar?</p>
+                </div>
+                <div className="grid gap-2">
+                  {['Sintesis Lipid', 'Sintesis Protein', 'Detoksifikasi Racun', 'Modifikasi Karbohidrat'].map((opt, i) => (
+                    <div key={i} className="p-3 rounded-xl border border-white/50 bg-white/20 text-xs font-medium flex items-center gap-3">
+                      <div className="w-5 h-5 rounded-full border border-current flex items-center justify-center text-[8px]">{String.fromCharCode(65+i)}</div>
+                      {opt}
+                    </div>
+                  ))}
+                </div>
+                <button onClick={onLogin} className="w-full py-3 bg-accent text-white rounded-xl text-sm font-bold liquid-button">
+                  Cek Jawaban & Mulai Belajar
+                </button>
+              </div>
+            </div>
+            {/* Decorative blurs */}
+            <div className="absolute -top-20 -right-20 w-64 h-64 bg-accent/20 rounded-full blur-[100px]" />
+            <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-gold/20 rounded-full blur-[100px]" />
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="py-40 px-6 text-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="max-w-4xl mx-auto glass-card p-12 md:p-20 rounded-[40px] border border-white/60 shadow-2xl relative overflow-hidden"
+        >
+          <div className="absolute inset-0 atmosphere opacity-20" />
+          <div className="relative z-10 space-y-8">
+            <h2 className="text-4xl md:text-7xl font-black tracking-tight leading-none">Siap Menjadi Juara Berikutnya?</h2>
+            <p className="text-lg text-text-muted max-w-xl mx-auto">Bergabunglah dengan ribuan siswa lainnya dan mulai perjalananmu menuju medali emas OSP Biologi.</p>
+            <button 
+              onClick={onLogin}
+              className="bg-accent text-white px-12 py-6 rounded-2xl text-xl font-black liquid-button shadow-2xl shadow-accent/40"
+            >
+              Mulai Belajar Gratis
+            </button>
+            <div className="pt-10 flex items-center justify-center gap-8 opacity-50 grayscale">
+              <div className="font-black text-xl tracking-tighter">OSN 2026</div>
+              <div className="font-black text-xl tracking-tighter">IBO 2026</div>
+              <div className="font-black text-xl tracking-tighter">PUSPRESNAS</div>
+            </div>
+          </div>
+        </motion.div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-12 px-6 border-t border-border flex flex-col md:flex-row items-center justify-between gap-6 opacity-50">
+        <div className="flex items-center gap-2 font-black tracking-tighter text-accent">
+          <Brain size={20} />
+          DYFALOGY
+        </div>
+        <div className="text-xs font-medium">© 2026 Dyfalogy Platform. All rights reserved.</div>
+        <div className="flex gap-6 text-xs font-bold uppercase tracking-widest">
+          <a href="#" className="hover:text-accent transition-colors">Privacy</a>
+          <a href="#" className="hover:text-accent transition-colors">Terms</a>
+          <a href="#" className="hover:text-accent transition-colors">Contact</a>
+        </div>
+      </footer>
+    </div>
   );
 };
 
@@ -310,16 +612,16 @@ const Forum = ({ user }: { user: any }) => {
             ← KEMBALI KE FORUM
           </button>
           
-          <div className="glass-card rounded-2xl p-6 space-y-4">
+          <div className="glass-card rounded-2xl p-6 space-y-4 shadow-xl">
             <div className="flex items-center gap-3">
-              <img src={selectedTopic.authorPhoto} className="w-10 h-10 rounded-full" alt="" referrerPolicy="no-referrer" />
+              <img src={selectedTopic.authorPhoto} className="w-10 h-10 rounded-full border border-white/50" alt="" referrerPolicy="no-referrer" />
               <div>
                 <div className="text-sm font-bold">{selectedTopic.authorName}</div>
                 <div className="text-[10px] text-text-muted">Dibuat pada {selectedTopic.createdAt?.toDate().toLocaleDateString()}</div>
               </div>
             </div>
-            <h2 className="text-xl font-black">{selectedTopic.title}</h2>
-            <p className="text-sm text-text-muted leading-relaxed whitespace-pre-wrap">{selectedTopic.content}</p>
+            <h2 className="text-xl font-black text-accent">{selectedTopic.title}</h2>
+            <p className="text-sm text-text-main leading-relaxed whitespace-pre-wrap">{selectedTopic.content}</p>
           </div>
 
           <div className="space-y-4">
@@ -327,12 +629,12 @@ const Forum = ({ user }: { user: any }) => {
               <MessageCircle size={16} /> Balasan ({selectedTopic.replyCount})
             </div>
             {replies.map((reply) => (
-              <div key={reply.id} className="glass-card rounded-xl p-4 space-y-2 ml-6">
+              <div key={reply.id} className="glass-card rounded-2xl p-4 space-y-2 ml-6 border-l-4 border-accent/30">
                 <div className="flex items-center gap-2">
-                  <img src={reply.authorPhoto} className="w-6 h-6 rounded-full" alt="" referrerPolicy="no-referrer" />
+                  <img src={reply.authorPhoto} className="w-6 h-6 rounded-full border border-white/50" alt="" referrerPolicy="no-referrer" />
                   <span className="text-xs font-bold">{reply.authorName}</span>
                 </div>
-                <p className="text-sm text-text-muted">{reply.content}</p>
+                <p className="text-sm text-text-main">{reply.content}</p>
               </div>
             ))}
           </div>
@@ -418,6 +720,109 @@ const Forum = ({ user }: { user: any }) => {
   );
 };
 
+// --- Chat Component ---
+
+const ChatInterface = ({ 
+  messages, 
+  input, 
+  setInput, 
+  onSend, 
+  isLoading, 
+  isSidebar = false 
+}: { 
+  messages: any[], 
+  input: string, 
+  setInput: (v: string) => void, 
+  onSend: (e: React.FormEvent) => void, 
+  isLoading: boolean,
+  isSidebar?: boolean
+}) => {
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  return (
+    <div className={cn("flex flex-col h-full", isSidebar ? "" : "max-w-4xl mx-auto w-full glass-card rounded-3xl overflow-hidden shadow-2xl")}>
+      {!isSidebar && (
+        <div className="p-6 border-b border-border bg-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shadow-accent/20">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <div className="text-base font-black text-text-main">Asisten dyfalogy AI</div>
+              <div className="text-[11px] text-emerald-500 font-bold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                Online & Siap Menjawab
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+        {messages.length === 0 && (
+          <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-30">
+            <Brain size={48} className="text-accent" />
+            <div>
+              <p className="text-sm font-bold uppercase tracking-widest">Selamat Datang di dyfalogy AI</p>
+              <p className="text-xs mt-1">Tanya apa saja tentang Biologi atau cara menggunakan web ini.</p>
+            </div>
+          </div>
+        )}
+        {messages.map((msg, idx) => (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            key={idx} 
+            className={cn(
+              "p-4 rounded-2xl text-sm leading-relaxed shadow-sm max-w-[85%]",
+              msg.role === 'user' 
+                ? "bg-white/60 text-text-main ml-auto border border-white/60 backdrop-blur-md" 
+                : "bg-accent/10 text-text-main border-l-4 border-accent mr-auto backdrop-blur-md"
+            )}
+          >
+            <div className="prose prose-sm prose-emerald max-w-none">
+              <ReactMarkdown>
+                {msg.content}
+              </ReactMarkdown>
+            </div>
+          </motion.div>
+        ))}
+        {isLoading && (
+          <div className="bg-accent/10 p-4 rounded-2xl border-l-4 border-accent mr-auto flex gap-1.5 w-fit">
+            <div className="w-2 h-2 bg-accent rounded-full animate-bounce" />
+            <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:0.2s]" />
+            <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:0.4s]" />
+          </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+
+      <form onSubmit={onSend} className="p-4 bg-white/20 border-t border-border">
+        <div className="relative flex gap-2">
+          <input 
+            type="text" 
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Tulis pesan kamu di sini..."
+            className="flex-1 bg-white/50 border border-border rounded-2xl px-5 py-3 text-sm focus:outline-none focus:border-accent transition-all shadow-inner"
+          />
+          <button 
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="bg-accent text-white p-3 rounded-2xl hover:bg-[#1A4331] transition-all disabled:opacity-30 shadow-lg shadow-accent/20"
+          >
+            <Send size={20} />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
 // --- Main App ---
 
 export default function App() {
@@ -429,6 +834,7 @@ export default function App() {
   const [inputMessage, setInputMessage] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Quiz states
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
@@ -611,37 +1017,26 @@ export default function App() {
     </div>
   );
 
-  if (!user) return (
-    <div className="h-screen bg-bg flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute inset-0 atmosphere opacity-20" />
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="max-w-md w-full glass-card rounded-3xl p-10 text-center relative z-10"
-      >
-        <div className="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl shadow-accent/20">
-          <Brain size={32} />
-        </div>
-        <div className="text-3xl font-black tracking-tighter text-accent mb-2">DYFALOGY</div>
-        <p className="text-sm text-text-muted mb-8">Platform Belajar & Komunitas Olimpiade Biologi.</p>
-        
-        <button 
-          onClick={signInWithGoogle}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-border py-3.5 px-6 rounded-xl font-bold text-text-main hover:bg-bg transition-all active:scale-95 liquid-button"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-          Masuk dengan Google
-        </button>
-      </motion.div>
-    </div>
-  );
+  if (!user) return <LandingPage onLogin={signInWithGoogle} />;
 
   return (
-    <div className="h-screen flex overflow-hidden bg-bg">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+    <div className="h-screen flex overflow-hidden bg-bg relative">
+      <div className="atmosphere" />
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        isOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)} 
+      />
       
-      <div className="flex-1 flex flex-col min-w-0 border-r border-border">
-        <Navbar user={userData} onLogout={logout} activeTab={activeTab} onToggleAi={() => setShowAiPanel(!showAiPanel)} />
+      <div className="flex-1 flex flex-col min-w-0 border-r border-border relative z-10">
+        <Navbar 
+          user={userData} 
+          onLogout={logout} 
+          activeTab={activeTab} 
+          onToggleAi={() => setShowAiPanel(!showAiPanel)} 
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        />
         
         <main className="flex-1 overflow-y-auto p-6">
           <AnimatePresence mode="wait">
@@ -919,9 +1314,14 @@ export default function App() {
             )}
             
             {activeTab === 'chat' && (
-              <div className="h-full flex flex-col items-center justify-center opacity-40">
-                <MessageSquare size={48} className="mb-4" />
-                <p className="text-sm font-bold">Gunakan Panel AI di Sebelah Kanan</p>
+              <div className="h-[calc(100vh-120px)]">
+                <ChatInterface 
+                  messages={chatMessages}
+                  input={inputMessage}
+                  setInput={setInputMessage}
+                  onSend={handleSendMessage}
+                  isLoading={isAiLoading}
+                />
               </div>
             )}
           </AnimatePresence>
@@ -934,7 +1334,7 @@ export default function App() {
         "fixed inset-y-0 right-0 xl:static bg-white/90 backdrop-blur-2xl",
         showAiPanel ? "translate-x-0" : "translate-x-full xl:translate-x-0"
       )}>
-        <div className="p-5 border-b border-border flex justify-between items-center bg-white/10">
+        <div className="p-5 border-b border-border flex justify-between items-center bg-white/10 shrink-0">
           <div>
             <div className="text-sm font-black text-text-main">Asisten dyfalogy AI</div>
             <div className="text-[11px] text-emerald-500 font-bold flex items-center gap-1.5">
@@ -945,51 +1345,16 @@ export default function App() {
           <button onClick={() => setShowAiPanel(false)} className="xl:hidden p-1 text-text-muted"><X size={18} /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {chatMessages.length === 0 && (
-            <div className="h-full flex flex-col items-center justify-center text-center space-y-3 opacity-30">
-              <Sparkles size={32} />
-              <p className="text-[11px] font-bold uppercase tracking-widest">Tanya apa saja tentang Bio atau Web ini...</p>
-            </div>
-          )}
-          {chatMessages.map((msg, idx) => (
-            <div key={idx} className={cn(
-              "p-3 rounded-2xl text-[13px] leading-relaxed shadow-sm",
-              msg.role === 'user' 
-                ? "bg-white/50 text-text-main ml-4 border border-white/50" 
-                : "bg-accent/10 text-text-main border-l-4 border-accent mr-4"
-            )}>
-              <ReactMarkdown>{msg.content}</ReactMarkdown>
-            </div>
-          ))}
-          {isAiLoading && (
-            <div className="bg-accent/10 p-3 rounded-2xl border-l-4 border-accent mr-4 flex gap-1">
-              <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" />
-              <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.2s]" />
-              <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.4s]" />
-            </div>
-          )}
-          <div ref={chatEndRef} />
+        <div className="flex-1 min-h-0">
+          <ChatInterface 
+            messages={chatMessages}
+            input={inputMessage}
+            setInput={setInputMessage}
+            onSend={handleSendMessage}
+            isLoading={isAiLoading}
+            isSidebar={true}
+          />
         </div>
-
-        <form onSubmit={handleSendMessage} className="p-4 bg-white/20 border-t border-border">
-          <div className="relative">
-            <input 
-              type="text" 
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Tanya apa saja..."
-              className="w-full bg-white/50 border border-border rounded-xl pl-3 pr-10 py-2.5 text-[13px] focus:outline-none focus:border-accent transition-all"
-            />
-            <button 
-              type="submit"
-              disabled={isAiLoading || !inputMessage.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-accent disabled:opacity-30 p-1 hover:bg-accent/10 rounded-lg transition-all"
-            >
-              <Send size={16} />
-            </button>
-          </div>
-        </form>
       </aside>
     </div>
   );
