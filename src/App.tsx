@@ -32,6 +32,7 @@ import { LESSONS, STUDY_STRATEGIES, BADGES, Lesson, Badge } from './constants/da
 import { getGeminiResponse, generateQuiz } from './lib/gemini';
 import ReactMarkdown from 'react-markdown';
 import { cn } from './lib/utils';
+import { AuthPage } from './components/AuthPage';
 
 // --- Components ---
 
@@ -835,6 +836,7 @@ export default function App() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   
   // Quiz states
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
@@ -1017,7 +1019,12 @@ export default function App() {
     </div>
   );
 
-  if (!user) return <LandingPage onLogin={signInWithGoogle} />;
+  if (!user) {
+    if (showAuth) {
+      return <AuthPage onBack={() => setShowAuth(false)} />;
+    }
+    return <LandingPage onLogin={() => setShowAuth(true)} />;
+  }
 
   return (
     <div className="h-screen flex overflow-hidden bg-bg relative">
