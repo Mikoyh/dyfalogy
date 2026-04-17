@@ -30,15 +30,25 @@
     inset: 0;
     z-index: -1;
     background:
-      radial-gradient(circle at 20% 20%, rgba(45, 106, 79, 0.15) 0%, transparent 40%),
-      radial-gradient(circle at 80% 80%, rgba(116, 198, 157, 0.15) 0%, transparent 40%),
-      radial-gradient(circle at 50% 50%, rgba(212, 175, 55, 0.05) 0%, transparent 60%);
-    filter: blur(80px);
+      radial-gradient(circle at 10% 10%, rgba(45, 106, 79, 0.2) 0%, transparent 50%),
+      radial-gradient(circle at 90% 90%, rgba(116, 198, 157, 0.2) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(212, 175, 55, 0.08) 0%, transparent 70%),
+      radial-gradient(circle at 80% 20%, rgba(45, 106, 79, 0.1) 0%, transparent 40%);
+    filter: blur(100px);
     pointer-events: none;
+    animation: atmosphere-drift 20s ease-in-out infinite alternate;
+  }
+
+  @keyframes atmosphere-drift {
+    from { transform: scale(1); }
+    to { transform: scale(1.1) translate(20px, 10px); }
   }
 
   .glass-card {
-    @apply bg-white/40 backdrop-blur-2xl border border-white/60 shadow-2xl shadow-black/5;
+    @apply bg-white/30 backdrop-blur-3xl border border-white/50 shadow-2xl shadow-black/5;
+    box-shadow: 
+      inset 0 1px 1px rgba(255,255,255,0.4),
+      0 10px 40px rgba(0,0,0,0.03);
   }
 
   .glass-sidebar {

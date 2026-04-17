@@ -36,7 +36,10 @@ import {
   Info,
   ShieldCheck,
   LifeBuoy,
-  FileText
+  FileText,
+  Image as ImageIcon,
+  Paperclip,
+  Trash2
 } from 'lucide-react';
 import { LESSONS, STUDY_STRATEGIES, BADGES, Lesson, Badge, CATEGORIES } from './constants/data';
 import { getGeminiResponse, generateQuiz, generateTTS } from './lib/gemini';
@@ -1369,16 +1372,27 @@ const ChatInterface = ({
   setInput, 
   onSend, 
   isLoading, 
-  isSidebar = false 
+  isSidebar = false,
+  selectedImage,
+  onImageSelect,
+  onClearImage,
+  isListening,
+  startListening
 }: { 
   messages: any[], 
   input: string, 
   setInput: (v: string) => void, 
   onSend: (e: React.FormEvent) => void, 
   isLoading: boolean,
-  isSidebar?: boolean
+  isSidebar?: boolean,
+  selectedImage: string | null,
+  onImageSelect: (e: React.ChangeEvent<HTMLInputElement>) => void,
+  onClearImage: () => void,
+  isListening: boolean,
+  startListening: () => void
 }) => {
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1387,10 +1401,10 @@ const ChatInterface = ({
   return (
     <div className={cn(
       "flex flex-col h-full w-full", 
-      isSidebar ? "" : "max-w-4xl mx-auto glass-card rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl"
+      isSidebar ? "" : "max-w-4xl mx-auto glass-card rounded-none md:rounded-3xl overflow-hidden shadow-2xl bg-white/5 md:bg-white/10"
     )}>
       {!isSidebar && (
-        <div className="p-4 md:p-6 border-b border-border bg-white/10 flex items-center justify-between shrink-0">
+        <div className="p-4 md:p-6 border-b border-border bg-white/10 flex items-center justify-between shrink-0 backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 md:w-10 md:h-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shadow-accent/20">
               <Sparkles size={16} className="md:w-5 md:h-5" />
@@ -1406,41 +1420,67 @@ const ChatInterface = ({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 min-h-0 bg-black/5 backdrop-blur-sm">
         {messages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-30">
-            <Brain size={48} className="text-accent" />
-            <div>
-              <p className="text-sm font-bold uppercase tracking-widest">Selamat Datang di dyfalogy AI</p>
-              <p className="text-xs mt-1">Tanya apa saja tentang Biologi atau cara menggunakan web ini.</p>
+          <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-40 px-6">
+            <div className="w-20 h-20 bg-accent/20 rounded-full flex items-center justify-center animate-pulse">
+              <Brain size={40} className="text-accent" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-lg font-black tracking-tight text-text-main">Dyfa AI Biology Assistant</p>
+              <p className="text-sm text-text-muted max-w-xs">Kirimkan pertanyaan Biologi, foto soal, atau gunakan suara untuk belajar bersama.</p>
             </div>
           </div>
         )}
         {messages.map((msg, idx) => (
           <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             key={idx} 
             className={cn(
-              "p-4 rounded-2xl text-sm leading-relaxed shadow-sm max-w-[85%]",
-              msg.role === 'user' 
-                ? "bg-white/60 text-text-main ml-auto border border-white/60 backdrop-blur-md" 
-                : cn(
-                  "bg-accent/10 text-text-main border-l-4 border-accent mr-auto backdrop-blur-md",
-                  msg.isError && "bg-red-50 border-red-500 text-red-700"
-                )
+              "flex flex-col gap-1 w-full",
+              msg.role === 'user' ? "items-end" : "items-start"
             )}
           >
-            <div className="prose prose-sm prose-emerald max-w-none">
-              <ReactMarkdown>
-                {msg.content}
-              </ReactMarkdown>
+            <div 
+              className={cn(
+                "p-4 text-sm leading-relaxed shadow-md max-w-[90%] md:max-w-[80%] relative",
+                msg.role === 'user' 
+                  ? "bg-[#2D6A4F] text-white rounded-[22px] rounded-tr-none shadow-accent/10 border border-white/10" 
+                  : cn(
+                    "bg-white/90 text-text-main rounded-[22px] rounded-tl-none border border-white/40 shadow-xl backdrop-blur-xl",
+                    msg.isError && "bg-red-50/90 border-red-200 text-red-700"
+                  )
+              )}
+            >
+              {msg.imageUrl && (
+                <div className="mb-3 overflow-hidden rounded-xl border border-white/20 shadow-inner">
+                  <img src={msg.imageUrl} alt="User Upload" className="max-w-full hover:scale-105 transition-transform duration-500" />
+                </div>
+              )}
+              <div className={cn(
+                "prose prose-sm max-w-none leading-relaxed", 
+                msg.role === 'user' 
+                  ? "prose-invert prose-p:text-white prose-headings:text-white prose-strong:text-white selection:bg-white/30" 
+                  : "prose-emerald selection:bg-accent/20"
+              )}>
+                <ReactMarkdown>
+                  {msg.content}
+                </ReactMarkdown>
+              </div>
+              
+              <div className={cn(
+                "text-[10px] mt-1 opacity-50 font-medium",
+                msg.role === 'user' ? "text-right" : "text-left"
+              )}>
+                {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
           </motion.div>
         ))}
         {isLoading && (
-          <div className="bg-accent/10 p-4 rounded-2xl border-l-4 border-accent mr-auto flex gap-1.5 w-fit">
-            <div className="w-2 h-2 bg-accent rounded-full animate-bounce" />
+          <div className="bg-white/40 p-4 rounded-2xl border-l-4 border-accent mr-auto flex gap-1.5 w-fit backdrop-blur-sm">
+            <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:0s]" />
             <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:0.2s]" />
             <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:0.4s]" />
           </div>
@@ -1448,24 +1488,70 @@ const ChatInterface = ({
         <div ref={chatEndRef} />
       </div>
 
-      <form onSubmit={onSend} className="p-3 md:p-4 bg-white/20 border-t border-border shrink-0">
-        <div className="relative flex gap-2">
-          <input 
-            type="text" 
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Tulis pesan kamu di sini..."
-            className="flex-1 bg-white/50 border border-border rounded-xl md:rounded-2xl px-4 md:px-5 py-2.5 md:py-3 text-sm focus:outline-none focus:border-accent transition-all shadow-inner"
-          />
-          <button 
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="bg-accent text-white p-2.5 md:p-3 rounded-xl md:rounded-2xl hover:bg-[#1A4331] transition-all disabled:opacity-30 shadow-lg shadow-accent/20"
-          >
-            <Send size={18} className="md:w-5 md:h-5" />
-          </button>
-        </div>
-      </form>
+      <div className="p-3 md:p-6 bg-white/20 border-t border-border shrink-0 backdrop-blur-xl">
+        {selectedImage && (
+          <div className="mb-4 relative w-24 h-24 group">
+            <img src={selectedImage} className="w-full h-full object-cover rounded-xl border-2 border-accent" />
+            <button 
+              onClick={onClearImage}
+              className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-lg hover:scale-110 transition-transform"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+        <form onSubmit={onSend} className="space-y-4">
+          <div className="flex gap-2 items-end">
+            <div className="flex-1 relative bg-white/40 rounded-2xl border border-white/60 shadow-inner group transition-all focus-within:bg-white/60 focus-within:border-accent">
+              <input 
+                type="text" 
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Tulis pesan kamu di sini..."
+                className="w-full bg-transparent px-5 py-4 text-sm focus:outline-none text-text-main pr-10"
+              />
+              <button 
+                type="button"
+                onClick={startListening}
+                className={cn(
+                  "absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all",
+                  isListening ? "bg-red-500 text-white animate-pulse" : "text-text-muted hover:text-accent"
+                )}
+              >
+                <Mic size={18} />
+              </button>
+            </div>
+            
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-4 bg-white/40 text-text-muted rounded-2xl border border-white/60 hover:bg-white/60 transition-all"
+              >
+                <ImageIcon size={20} />
+              </button>
+              <input 
+                type="file" 
+                hidden 
+                ref={fileInputRef} 
+                accept="image/*"
+                onChange={onImageSelect}
+              />
+              <button 
+                type="submit"
+                disabled={isLoading || (!input.trim() && !selectedImage)}
+                className="bg-accent text-white p-4 rounded-2xl hover:bg-[#1A4331] transition-all disabled:opacity-30 shadow-lg shadow-accent/20 flex items-center justify-center min-w-[56px]"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Send size={20} />
+                )}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
@@ -1493,6 +1579,9 @@ export default function App() {
   const [isListening, setIsListening] = useState(false);
   const [searchResults, setSearchResults] = useState<{lessons: Lesson[], strategies: any[]}>({ lessons: [], strategies: [] });
   const [showSearchResults, setShowSearchResults] = useState(false);
+
+  // Chat Image
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   // History state
   const [quizHistory, setQuizHistory] = useState<any[]>([]);
@@ -1576,10 +1665,12 @@ export default function App() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !user) return;
+    if ((!inputMessage.trim() && !selectedImage) || !user) return;
 
     const userMsg = inputMessage;
+    const userImg = selectedImage;
     setInputMessage('');
+    setSelectedImage(null);
     setIsAiLoading(true);
 
     try {
@@ -1588,6 +1679,7 @@ export default function App() {
         userId: user.uid,
         role: 'user',
         content: userMsg,
+        imageUrl: userImg,
         timestamp: serverTimestamp()
       });
 
@@ -1596,7 +1688,7 @@ export default function App() {
         parts: [{ text: m.content }]
       }));
 
-      const aiResponse = await getGeminiResponse(userMsg, history);
+      const aiResponse = await getGeminiResponse(userMsg || "Tolong jelaskan gambar ini", history, userImg || undefined);
 
       await addDoc(chatRef, {
         userId: user.uid,
@@ -1617,6 +1709,21 @@ export default function App() {
       });
     } finally {
       setIsAiLoading(false);
+    }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Ukuran file terlalu besar. Maksimal 2MB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -2301,14 +2408,19 @@ export default function App() {
             )}
             
             {activeTab === 'chat' && (
-              <div className="fixed inset-0 lg:static flex flex-col pt-16 lg:pt-0 pb-0 lg:h-[calc(100vh-120px)] bg-bg lg:bg-transparent z-40">
-                <div className="flex-1 min-h-0 p-4 lg:p-0">
+              <div className="fixed inset-0 lg:static flex flex-col pt-16 lg:pt-0 pb-0 lg:h-[calc(100vh-120px)] bg-bg lg:bg-transparent z-40 overflow-hidden">
+                <div className="flex-1 min-h-0 lg:p-0">
                   <ChatInterface 
                     messages={chatMessages}
                     input={inputMessage}
                     setInput={setInputMessage}
                     onSend={handleSendMessage}
                     isLoading={isAiLoading}
+                    selectedImage={selectedImage}
+                    onImageSelect={handleImageSelect}
+                    onClearImage={() => setSelectedImage(null)}
+                    isListening={isListening}
+                    startListening={startListening}
                   />
                 </div>
               </div>
@@ -2342,6 +2454,11 @@ export default function App() {
             onSend={handleSendMessage}
             isLoading={isAiLoading}
             isSidebar={true}
+            selectedImage={selectedImage}
+            onImageSelect={handleImageSelect}
+            onClearImage={() => setSelectedImage(null)}
+            isListening={isListening}
+            startListening={startListening}
           />
         </div>
       </aside>

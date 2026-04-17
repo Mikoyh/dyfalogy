@@ -17,23 +17,37 @@ const getAI = () => {
   return genAI;
 };
 
-export const getGeminiResponse = async (prompt: string, history: any[] = []) => {
+export const getGeminiResponse = async (prompt: string, history: any[] = [], imageBase64?: string) => {
   const ai = getAI();
   if (!ai) throw new Error("AI client not initialized. Please check your API key.");
   
+  const userParts: any[] = [{ text: prompt }];
+  if (imageBase64) {
+    // Check if it's a data URL and extract base64
+    const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    const mimeType = imageBase64.includes(';') ? imageBase64.split(';')[0].split(':')[1] : 'image/jpeg';
+    
+    userParts.push({
+      inlineData: {
+        mimeType: mimeType,
+        data: base64Data
+      }
+    });
+  }
+
   const contents = [
     ...history.map(h => ({
       role: h.role === 'user' ? 'user' : 'model',
       parts: h.parts
     })),
-    { role: 'user', parts: [{ text: prompt }] }
+    { role: 'user', parts: userParts }
   ];
 
   const response = await ai.models.generateContent({
     model: "gemini-flash-latest",
     contents,
     config: {
-      systemInstruction: "You are Dyfa AI, an expert Biology tutor specializing in OSP (Olimpiade Sains Provinsi) Biologi. You help students understand complex biological concepts, provide study strategies, and solve practice problems. Keep your tone encouraging, professional, and clear. Use Indonesian as the primary language, but use scientific terms correctly.",
+      systemInstruction: "You are Dyfa AI, an expert Biology tutor specializing in OSP (Olimpiade Sains Provinsi) Biologi. You help students understand complex biological concepts, provide study strategies, and solve practice problems. Keep your tone encouraging, professional, and clear. Use Indonesian as the primary language, but use scientific terms correctly. If the user provides an image, analyze it deeply in the context of OSP Biologi.",
     }
   });
 
