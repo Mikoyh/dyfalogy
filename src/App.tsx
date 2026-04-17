@@ -49,7 +49,70 @@ import { cn } from './lib/utils';
 import { AuthPage } from './components/AuthPage';
 import { ProfilePage } from './components/ProfilePage';
 
-// --- Components ---
+const ConfirmationModal = ({ 
+  isOpen, 
+  onClose, 
+  onConfirm, 
+  title, 
+  message, 
+  confirmText = "Ya, Lanjutkan",
+  cancelText = "Batal",
+  isDanger = false
+}: { 
+  isOpen: boolean, 
+  onClose: () => void, 
+  onConfirm: () => void, 
+  title: string, 
+  message: string,
+  confirmText?: string,
+  cancelText?: string,
+  isDanger?: boolean
+}) => (
+  <AnimatePresence>
+    {isOpen && (
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        />
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          className="relative w-full max-w-sm glass-card rounded-3xl p-8 border border-white/50 shadow-2xl overflow-hidden"
+        >
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-accent/20">
+            <div className={cn("h-full", isDanger ? "bg-red-500" : "bg-accent")} style={{ width: '100%' }} />
+          </div>
+          <div className="space-y-4">
+            <h3 className="text-xl font-black tracking-tight">{title}</h3>
+            <p className="text-sm text-text-muted leading-relaxed">{message}</p>
+            <div className="flex gap-3 pt-2">
+              <button 
+                onClick={onClose}
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-white/50 border border-border hover:bg-white transition-all"
+              >
+                {cancelText}
+              </button>
+              <button 
+                onClick={() => { onConfirm(); onClose(); }}
+                className={cn(
+                  "flex-1 py-3 rounded-xl text-sm font-bold text-white shadow-lg transition-all active:scale-95",
+                  isDanger ? "bg-red-600 shadow-red-500/20 hover:bg-red-700" : "bg-accent shadow-accent/20 hover:bg-[#1A4331]"
+                )}
+              >
+                {confirmText}
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    )}
+  </AnimatePresence>
+);
 
 const Navbar = ({ 
   user, 
@@ -75,101 +138,117 @@ const Navbar = ({
   setSearchQuery: (q: string) => void,
   isListening: boolean,
   startListening: () => void
-}) => (
-  <nav className="h-16 glass-nav flex items-center justify-between px-6 shrink-0 z-50 sticky top-0">
-    <div className="flex items-center gap-3">
-      <button 
-        onClick={onToggleSidebar}
-        className="lg:hidden p-2 text-accent hover:bg-accent/10 rounded-full transition-all"
-      >
-        <Menu size={20} />
-      </button>
-      <div className="text-sm font-medium flex items-center gap-2">
-        <span className="text-text-muted hidden sm:inline">dyfalogy /</span> 
-        <span className="font-bold text-accent whitespace-nowrap overflow-hidden text-ellipsis max-w-[100px] sm:max-w-none">
-          {activeTab === 'dashboard' ? 'Overview' : 
-           activeTab === 'lessons' ? 'Mulai Belajar' : 
-           activeTab === 'strategies' ? 'Strategi Belajar' : 
-           activeTab === 'forum' ? 'Komunitas' : 
-           activeTab === 'profile' ? 'Profil Saya' : 
-           activeTab === 'osn-archive' ? 'Arsip OSN' :
-           activeTab === 'customer-service' ? 'Layanan Pelanggan' : 'Dyfa AI'}
-        </span>
-      </div>
-    </div>
-
-    <div className="flex-1 max-w-md mx-6 hidden md:block relative group">
-      <div className="relative">
-        <SearchIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent transition-colors" />
-        <input 
-          type="text" 
-          value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            onSearch(e.target.value);
-          }}
-          placeholder="Cari materi, strategi, atau topik..." 
-          className="w-full bg-white/40 border border-white/50 rounded-full py-2.5 pl-11 pr-12 text-sm focus:outline-none focus:bg-white/80 focus:border-accent/40 shadow-sm transition-all"
-        />
-        <button 
-          onClick={startListening}
-          className={cn(
-            "absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all",
-            isListening ? "bg-red-500 text-white animate-pulse" : "text-text-muted hover:bg-accent/10 hover:text-accent"
-          )}
-        >
-          <Mic size={16} />
-        </button>
-      </div>
-    </div>
-    
-    <div className="flex items-center gap-3 sm:gap-4">
-      <button 
-        onClick={onToggleAi}
-        className="xl:hidden p-2 text-accent hover:bg-accent/10 rounded-full transition-all"
-      >
-        <MessageSquare size={20} />
-      </button>
-      {user && (
+}) => {
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  
+  return (
+    <>
+      <nav className="h-16 glass-nav flex items-center justify-between px-6 shrink-0 z-50 sticky top-0">
         <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-bold text-text-main leading-none">{user.displayName}</p>
-            <p className="text-[11px] text-text-muted mt-1">Rank: #12 Nasional</p>
-          </div>
-          <div 
-            onClick={onProfileClick}
-            className="relative group cursor-pointer"
-          >
-            <div 
-              className="w-10 h-10 rounded-full p-0.5"
-              style={{ 
-                background: user.profileBorder && user.profileBorder !== 'none' 
-                  ? `conic-gradient(from 0deg, #FFD700, transparent, #FFD700)` 
-                  : 'transparent' 
-              }}
-            >
-              <img 
-                src={user.photoURL || 'https://picsum.photos/seed/user/100/100'} 
-                className="w-full h-full rounded-full border border-white/50 shadow-sm object-cover"
-                alt="Profile"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <div className="absolute -top-1 -right-1 bg-gold text-[9px] font-black px-1.5 py-0.5 rounded border border-white badge-glow">
-              LVL {user.level || 1}
-            </div>
-          </div>
           <button 
-            onClick={onLogout}
-            className="p-1.5 text-text-muted hover:text-red-600 transition-colors liquid-button"
+            onClick={onToggleSidebar}
+            className="lg:hidden p-2 text-accent hover:bg-accent/10 rounded-full transition-all"
           >
-            <LogOut size={16} />
+            <Menu size={20} />
           </button>
+          <div className="text-sm font-medium flex items-center gap-2">
+            <span className="text-text-muted hidden sm:inline">dyfalogy /</span> 
+            <span className="font-bold text-accent whitespace-nowrap overflow-hidden text-ellipsis max-w-[100px] sm:max-w-none">
+              {activeTab === 'dashboard' ? 'Overview' : 
+               activeTab === 'lessons' ? 'Mulai Belajar' : 
+               activeTab === 'strategies' ? 'Strategi Belajar' : 
+               activeTab === 'forum' ? 'Komunitas' : 
+               activeTab === 'profile' ? 'Profil Saya' : 
+               activeTab === 'osn-archive' ? 'Arsip OSN' :
+               activeTab === 'customer-service' ? 'Layanan Pelanggan' : 'Dyfa AI'}
+            </span>
+          </div>
         </div>
-      )}
-    </div>
-  </nav>
-);
+
+        <div className="flex-1 max-w-md mx-6 hidden md:block relative group">
+          <div className="relative">
+            <SearchIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent transition-colors" />
+            <input 
+              type="text" 
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                onSearch(e.target.value);
+              }}
+              placeholder="Cari materi, strategi, atau topik..." 
+              className="w-full bg-white/40 border border-white/50 rounded-full py-2.5 pl-11 pr-12 text-sm focus:outline-none focus:bg-white/80 focus:border-accent/40 shadow-sm transition-all"
+            />
+            <button 
+              onClick={startListening}
+              className={cn(
+                "absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all",
+                isListening ? "bg-red-500 text-white animate-pulse" : "text-text-muted hover:bg-accent/10 hover:text-accent"
+              )}
+            >
+              <Mic size={16} />
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button 
+            onClick={onToggleAi}
+            className="xl:hidden p-2 text-accent hover:bg-accent/10 rounded-full transition-all"
+          >
+            <MessageSquare size={20} />
+          </button>
+          {user && (
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-text-main leading-none">{user.displayName}</p>
+                <p className="text-[11px] text-text-muted mt-1">Rank: #12 Nasional</p>
+              </div>
+              <div 
+                onClick={onProfileClick}
+                className="relative group cursor-pointer"
+              >
+                <div 
+                  className="w-10 h-10 rounded-full p-0.5"
+                  style={{ 
+                    background: user.profileBorder && user.profileBorder !== 'none' 
+                      ? `conic-gradient(from 0deg, #FFD700, transparent, #FFD700)` 
+                      : 'transparent' 
+                  }}
+                >
+                  <img 
+                    src={user.photoURL || 'https://picsum.photos/seed/user/100/100'} 
+                    className="w-full h-full rounded-full border border-white/50 shadow-sm object-cover"
+                    alt="Profile"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="absolute -top-1 -right-1 bg-gold text-[9px] font-black px-1.5 py-0.5 rounded border border-white badge-glow">
+                  LVL {user.level || 1}
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowLogoutConfirm(true)}
+                className="p-1.5 text-text-muted hover:text-red-600 transition-colors liquid-button"
+              >
+                <LogOut size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+      </nav>
+
+      <ConfirmationModal 
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={onLogout}
+        title="Keluar dari Dyfalogy?"
+        message="Kamu akan mengakhiri sesi belajar saat ini. Pastikan progresmu sudah tersimpan."
+        confirmText="Ya, Keluar"
+        isDanger={true}
+      />
+    </>
+  );
+};
 
 const Sidebar = ({ 
   activeTab, 
@@ -465,14 +544,24 @@ const LandingPage = ({ onLogin }: { onLogin: () => void }) => {
           transition={{ delay: 0.4, duration: 1 }}
           className="mt-20 w-full max-w-6xl mx-auto relative"
         >
-          <div className="aspect-video rounded-3xl overflow-hidden border border-white/60 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.15)] liquid-glass relative">
-            <div className="absolute inset-0 bg-gradient-to-tr from-accent/5 to-transparent" />
-            <img 
-              src="https://picsum.photos/seed/biology/1920/1080" 
-              className="w-full h-full object-cover opacity-80 mix-blend-overlay"
-              alt="Dashboard Preview"
-              referrerPolicy="no-referrer"
-            />
+          <div className="aspect-video rounded-3xl overflow-hidden border border-white/40 shadow-[0_40px_100px_-20px_rgba(0,0,0,0.1)] liquid-glass relative flex items-center justify-center p-12">
+            <div className="absolute inset-0 bg-gradient-to-tr from-accent/10 via-gold/5 to-transparent pointer-events-none" />
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full h-full opacity-20 pointer-events-none">
+              {[...Array(16)].map((_, i) => (
+                <div key={i} className="border border-accent/20 rounded-2xl flex items-center justify-center">
+                  <Brain size={40} className="text-accent/30" />
+                </div>
+              ))}
+            </div>
+
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+              <div className="w-24 h-24 bg-accent/20 rounded-3xl flex items-center justify-center mb-6 backdrop-blur-xl border border-white/20">
+                <Sparkles size={48} className="text-accent animate-pulse" />
+              </div>
+              <h3 className="text-3xl font-black mb-4 tracking-tighter">Ekosistem Belajar Digital</h3>
+              <p className="max-w-md text-text-muted text-sm font-medium">Interaksi tanpa batas dengan kurikulum Biologi terlengkap di Indonesia.</p>
+            </div>
             {/* Floating UI Elements for effect */}
             <div className="absolute top-10 left-10 w-64 h-32 glass-card rounded-2xl p-4 hidden lg:block animate-bounce [animation-duration:4s]">
               <div className="flex items-center gap-2 mb-2">
@@ -626,6 +715,7 @@ const Quiz = ({ questions, timerSeconds, onFinish, onCancel }: { questions: any[
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerSeconds || 0);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   const currentQuestion = questions[currentIndex];
 
@@ -680,9 +770,19 @@ const Quiz = ({ questions, timerSeconds, onFinish, onCancel }: { questions: any[
               {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
             </span>
           )}
-          <button onClick={onCancel} className="text-text-muted hover:text-red-500 transition-colors"><X size={18} /></button>
+          <button onClick={() => setShowExitConfirm(true)} className="text-text-muted hover:text-red-500 transition-colors p-2"><X size={18} /></button>
         </div>
       </div>
+
+      <ConfirmationModal 
+        isOpen={showExitConfirm}
+        onClose={() => setShowExitConfirm(false)}
+        onConfirm={onCancel}
+        title="Batalkan Kuis?"
+        message="Progress kuis kamu saat ini tidak akan disimpan dan kamu harus mengulang dari awal jika keluar sekarang."
+        confirmText="Ya, Keluar"
+        isDanger={true}
+      />
       
       <div className="h-1.5 bg-gray-100/50 rounded-full overflow-hidden">
         <div className="h-full bg-accent transition-all duration-300" style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }} />
@@ -771,7 +871,17 @@ const ReactionButton = ({ count, icon, active, onClick }: { count: number, icon:
   </button>
 );
 
-const Forum = ({ user, onProfileClick }: { user: any, onProfileClick: (uid: string) => void }) => {
+const Forum = ({ 
+  user, 
+  onProfileClick,
+  isListening,
+  startListening
+}: { 
+  user: any, 
+  onProfileClick: (uid: string) => void,
+  isListening: boolean,
+  startListening: () => void
+}) => {
   const [topics, setTopics] = useState<any[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<any>(null);
   const [replies, setReplies] = useState<any[]>([]);
@@ -850,6 +960,22 @@ const Forum = ({ user, onProfileClick }: { user: any, onProfileClick: (uid: stri
     setActiveContextMenu(null);
   };
 
+  const [forumImage, setForumImage] = useState<string | null>(null);
+  const forumFileRef = useRef<HTMLInputElement>(null);
+
+  const handleForumImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Ukuran gambar maksimal 2MB ya!");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => setForumImage(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleCreateTopic = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTopicTitle.trim() || !newTopicContent.trim() || !user) return;
@@ -857,6 +983,7 @@ const Forum = ({ user, onProfileClick }: { user: any, onProfileClick: (uid: stri
     await addDoc(collection(db, 'forumTopics'), {
       title: newTopicTitle,
       content: newTopicContent,
+      imageUrl: forumImage,
       authorId: user.uid,
       authorName: user.displayName,
       authorPhoto: user.photoURL,
@@ -871,6 +998,7 @@ const Forum = ({ user, onProfileClick }: { user: any, onProfileClick: (uid: stri
 
     setNewTopicTitle('');
     setNewTopicContent('');
+    setForumImage(null);
     setIsCreating(false);
   };
 
@@ -1049,30 +1177,43 @@ const Forum = ({ user, onProfileClick }: { user: any, onProfileClick: (uid: stri
             {renderReplies(null)}
           </div>
 
-          <form onSubmit={handleCreateReply} className="sticky bottom-6 glass-card rounded-2xl p-4 flex flex-col gap-3 shadow-2xl z-30">
+          <form onSubmit={handleCreateReply} className="sticky bottom-4 glass-card rounded-3xl p-3 md:p-4 flex flex-col gap-3 shadow-2xl z-30 mx-0 md:mx-auto max-w-full">
             {replyingTo && (
               <div className="flex justify-between items-center bg-accent/10 px-3 py-1.5 rounded-xl border border-accent/20">
                 <span className="text-[10px] font-bold text-accent">Membalas @{replyingTo.authorName}</span>
-                <button onClick={() => setReplyingTo(null)} className="text-text-muted hover:text-red-500"><X size={12} /></button>
+                <button type="button" onClick={() => setReplyingTo(null)} className="text-text-muted hover:text-red-500"><X size={12} /></button>
               </div>
             )}
-            <div className="flex gap-2">
-              <input 
-                type="text" 
-                value={newReplyContent}
-                onChange={(e) => setNewReplyContent(e.target.value)}
-                placeholder={replyingTo ? "Balas diskusi..." : "Tulis balasan publik..."}
-                className="flex-1 bg-white/50 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent transition-all"
-              />
-              <button type="submit" className="bg-accent text-white px-6 py-3 rounded-xl text-sm font-bold liquid-button">
-                Kirim
+            <div className="flex gap-2 items-center">
+              <div className="flex-1 relative">
+                <input 
+                  type="text" 
+                  value={newReplyContent}
+                  onChange={(e) => setNewReplyContent(e.target.value)}
+                  placeholder={replyingTo ? "Balas diskusi..." : "Tulis balasan publik..."}
+                  className="w-full bg-white/50 border border-border rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-accent transition-all pr-10"
+                />
+                <button 
+                  type="button"
+                  onClick={startListening}
+                  className={cn(
+                    "absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all",
+                    isListening ? "bg-red-500 text-white animate-pulse" : "text-text-muted hover:text-accent"
+                  )}
+                >
+                  <Mic size={16} />
+                </button>
+              </div>
+              <button type="submit" className="bg-accent text-white p-3 md:px-6 md:py-3 rounded-2xl text-sm font-bold liquid-button shrink-0">
+                <span className="hidden md:inline">Kirim</span>
+                <Send size={18} className="md:hidden" />
               </button>
             </div>
           </form>
         </div>
       ) : (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
+        <div className="space-y-6 pb-20">
+          <div className="flex justify-between items-center px-2 md:px-0">
             <h2 className="text-xl font-black tracking-tight">Diskusi Komunitas</h2>
             <button 
               onClick={() => setIsCreating(!isCreating)}
@@ -1088,7 +1229,7 @@ const Forum = ({ user, onProfileClick }: { user: any, onProfileClick: (uid: stri
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               onSubmit={handleCreateTopic} 
-              className="glass-card rounded-3xl p-8 space-y-4 border border-accent/10"
+              className="glass-card rounded-3xl p-6 md:p-8 space-y-4 border border-accent/10 mx-2 md:mx-0"
             >
               <input 
                 type="text" 
@@ -1097,20 +1238,57 @@ const Forum = ({ user, onProfileClick }: { user: any, onProfileClick: (uid: stri
                 placeholder="Judul Topik yang Menarik"
                 className="w-full bg-white/50 border border-border rounded-xl px-5 py-3 text-sm font-bold focus:outline-none focus:border-accent"
               />
-              <textarea 
-                value={newTopicContent}
-                onChange={(e) => setNewTopicContent(e.target.value)}
-                placeholder="Deskripsikan apa yang ingin kamu diskusikan atau tanyakan..."
-                rows={5}
-                className="w-full bg-white/50 border border-border rounded-xl px-5 py-3 text-sm focus:outline-none focus:border-accent resize-none"
-              />
-              <button type="submit" className="w-full bg-accent text-white py-4 rounded-xl font-bold liquid-button text-sm">
-                Posting ke Komunitas
-              </button>
+              
+              <div className="relative">
+                <textarea 
+                  value={newTopicContent}
+                  onChange={(e) => setNewTopicContent(e.target.value)}
+                  placeholder="Deskripsikan apa yang ingin kamu diskusikan atau tanyakan..."
+                  rows={4}
+                  className="w-full bg-white/50 border border-border rounded-xl px-5 py-3 text-sm focus:outline-none focus:border-accent resize-none pr-12"
+                />
+                <button 
+                  type="button"
+                  onClick={startListening}
+                  className={cn(
+                    "absolute right-3 top-3 p-2 rounded-xl transition-all",
+                    isListening ? "bg-red-500 text-white animate-pulse" : "text-text-muted hover:text-accent"
+                  )}
+                >
+                  <Mic size={18} />
+                </button>
+              </div>
+
+              {forumImage && (
+                <div className="relative w-24 h-24 group">
+                  <img src={forumImage} className="w-full h-full object-cover rounded-xl border-2 border-accent" />
+                  <button 
+                    onClick={() => setForumImage(null)}
+                    type="button"
+                    className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-lg"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button 
+                  type="button"
+                  onClick={() => forumFileRef.current?.click()}
+                  className="flex-1 py-3 bg-white/40 text-text-muted rounded-xl border border-white/60 hover:bg-white/60 transition-all flex items-center justify-center gap-2 text-xs font-bold"
+                >
+                  <ImageIcon size={16} /> Lampirkan Gambar
+                </button>
+                <input type="file" hidden ref={forumFileRef} accept="image/*" onChange={handleForumImageSelect} />
+                <button type="submit" className="flex-[2] bg-accent text-white py-3 rounded-xl font-bold liquid-button text-sm">
+                  Posting Topik
+                </button>
+              </div>
             </motion.form>
           )}
 
-          <div className="grid gap-4">
+          <div className="grid gap-4 px-2 md:px-0">
             {topics.map((topic) => (
               <motion.div
                 layout
@@ -1134,8 +1312,13 @@ const Forum = ({ user, onProfileClick }: { user: any, onProfileClick: (uid: stri
                     </div>
                   </div>
                 </div>
-                <div onClick={() => setSelectedTopic(topic)} className="cursor-pointer space-y-2">
+                <div onClick={() => setSelectedTopic(topic)} className="cursor-pointer space-y-3">
                   <h3 className="text-lg font-bold text-text-main group-hover:text-accent transition-colors leading-snug">{topic.title}</h3>
+                  {topic.imageUrl && (
+                    <div className="rounded-xl overflow-hidden border border-white/20 max-h-48">
+                      <img src={topic.imageUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                    </div>
+                  )}
                   <p className="text-sm text-text-muted line-clamp-2 leading-relaxed">{topic.content}</p>
                 </div>
                 <div className="flex items-center gap-5 mt-6 pt-4 border-t border-white/20">
@@ -1575,6 +1758,8 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [quizConfig, setQuizConfig] = useState({ count: 10, timer: 60 });
   const [activeContextMenu, setActiveContextMenu] = useState<string | null>(null);
+  
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -2333,7 +2518,12 @@ export default function App() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
               >
-                <Forum user={userData} onProfileClick={(uid) => setViewingProfileId(uid)} />
+                <Forum 
+                  user={userData} 
+                  onProfileClick={(uid) => setViewingProfileId(uid)} 
+                  isListening={isListening}
+                  startListening={startListening}
+                />
               </motion.div>
             )}
 
