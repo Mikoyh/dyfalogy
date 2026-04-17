@@ -77,29 +77,51 @@ export const generateTTS = async (text: string, voice: 'Puck' | 'Charon' | 'Kore
   return base64Audio;
 };
 
-export const generateQuiz = async (topicTitle: string, topicContent: string, count: number = 10) => {
+export const generateQuiz = async (
+  topicTitle: string, 
+  topicContent: string, 
+  count: number = 10,
+  isTryOut: boolean = false,
+  weaknessFocus?: string[]
+) => {
   const ai = getAI();
   if (!ai) throw new Error("AI client not initialized. Please check your API key.");
 
-  const prompt = `Buatkan ${count} soal pilihan ganda (A, B, C, D, E) tentang topik: ${topicTitle}. 
-    Gunakan materi berikut sebagai referensi: ${topicContent}.
+  let prompt = `Buatkan ${count} soal tentang topik: ${topicTitle}. 
+    Gunakan materi berikut sebagai referensi: ${topicContent}.`;
+
+  if (isTryOut) {
+    prompt = `Buatkan ${count} soal simulasi OSN (Olimpiade Sains Nasional) Biologi tingkat Provinsi. 
+    Soal harus mencakup berbagai topik biologi modern (Biokimia, Genetika, Fisiologi, Ekologi).
+    Tingkat kesulitan harus TINGGI (Olympic Grade), fokus pada analisis data dan pemecahan masalah eksperimental.`;
+  }
+
+  if (weaknessFocus && weaknessFocus.length > 0) {
+    prompt += ` NB: Siswa memiliki kelemahan pada topik berikut: ${weaknessFocus.join(', ')}. 
+    Berikan lebih banyak soal yang menantang pada area tersebut untuk membantu mereka berlatih.`;
+  }
+
+  prompt += `
+    CRITICAL: Kamu HARUS menghasilkan campuran dua tipe soal:
+    1. MULTIPLE_CHOICE: Pilihan ganda standar (A-E).
+    2. MULTIPLE_STATEMENTS: Format OSN dimana terdapat 4 pernyataan (A, B, C, D) dan siswa harus menentukan apakah setiap pernyataan tersebut Benar (B) atau Salah (S).
     
-    CRITICAL: Kamu HARUS memberikan penjelasan untuk SETIAP opsi jawaban (baik yang benar maupun yang salah).
-    Penjelasan harus membantu siswa memahami mengapa sebuah opsi benar atau mengapa opsi tersebut salah/kurang tepat dalam konteks soal.
-    
+    Untuk MULTIPLE_STATEMENTS, pastikan pernyataan bervariasi (bisa jadi semua benar, semua salah, atau campuran). Ini adalah format khas OSN Biologi.
+
     Format output harus JSON ARRAY of OBJECTS dengan struktur:
     [
       {
+        "type": "MULTIPLE_CHOICE" | "MULTIPLE_STATEMENTS",
         "question": "teks soal",
-        "options": ["A", "B", "C", "D", "E"],
-        "correctAnswer": 0, // index dari options (0-4)
-        "optionExplanations": [
-          "Penjelasan untuk opsi A...",
-          "Penjelasan untuk opsi B...",
-          "Penjelasan untuk opsi C...",
-          "Penjelasan untuk opsi D...",
-          "Penjelasan untuk opsi E..."
+        "options": ["A", "B", "C", "D", "E"], // HANYA untuk MULTIPLE_CHOICE
+        "correctAnswer": 0, // HANYA untuk MULTIPLE_CHOICE (index dari options 0-4)
+        "statements": [ // HANYA untuk MULTIPLE_STATEMENTS (tepat 4 pernyataan)
+           {"text": "pernyataan A", "isCorrect": true},
+           {"text": "pernyataan B", "isCorrect": false},
+           {"text": "pernyataan C", "isCorrect": true},
+           {"text": "pernyataan D", "isCorrect": true}
         ],
+        "optionExplanations": ["Penjelasan A", "Penjelasan B", ...], // Berikan penjelasan untuk setiap opsi/pernyataan
         "explanation": "Ringkasan penjelasan umum/kunci jawaban"
       }
     ]`;
@@ -114,19 +136,31 @@ export const generateQuiz = async (topicTitle: string, topicContent: string, cou
         items: {
           type: Type.OBJECT,
           properties: {
+            type: { type: Type.STRING, enum: ["MULTIPLE_CHOICE", "MULTIPLE_STATEMENTS"] },
             question: { type: Type.STRING },
             options: { 
               type: Type.ARRAY,
               items: { type: Type.STRING }
             },
             correctAnswer: { type: Type.INTEGER },
+            statements: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  text: { type: Type.STRING },
+                  isCorrect: { type: Type.BOOLEAN }
+                },
+                required: ["text", "isCorrect"]
+              }
+            },
             optionExplanations: {
               type: Type.ARRAY,
               items: { type: Type.STRING }
             },
             explanation: { type: Type.STRING }
           },
-          required: ["question", "options", "correctAnswer", "optionExplanations", "explanation"]
+          required: ["type", "question", "optionExplanations", "explanation"]
         }
       }
     }

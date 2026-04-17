@@ -10,37 +10,39 @@ export const LandingPage = memo(({ onLogin }: { onLogin: () => void }) => {
       <motion.div 
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative z-10 text-center space-y-8 max-w-4xl"
+        className="relative z-10 text-center space-y-12 max-w-4xl"
       >
         <div className="flex justify-center">
           <motion.div 
-            animate={{ rotate: 360 }}
-            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            className="w-24 h-24 bg-accent rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-accent/40"
+            animate={{ 
+              y: [0, -10, 0],
+              rotate: [0, 5, -5, 0]
+            }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+            className="w-28 h-28 bg-white border border-accent/10 rounded-[32px] flex items-center justify-center text-accent shadow-2xl shadow-accent/5"
           >
-            <Brain size={48} />
+            <Brain size={56} className="text-accent" />
           </motion.div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-text-main leading-none">
+            <h1 className="text-7xl md:text-9xl font-black tracking-tighter text-text-main leading-[0.85]">
               BIOLOGY <br />
-              <span className="text-accent underline-gold">MASTERY.</span>
+              <span className="text-accent underline-gold decoration-gold/30">MASTERY.</span>
             </h1>
           </motion.div>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="text-xl text-text-muted font-medium max-w-2xl mx-auto leading-relaxed"
+            className="text-lg md:text-xl text-text-muted font-medium max-w-2xl mx-auto leading-relaxed border-l-2 border-accent/20 pl-6 text-left"
           >
-            Platform olimpiade biologi tercanggih di Indonesia. 
-            Belajar dengan AI, tantang temanmu, dan raih medali emasmu.
+            Satu-satunya platform persiapan OSP Biologi yang menggabungkan Gamifikasi, Spaced Repetition, dan AI Personal Tutor dalam satu ekosistem canggih.
           </motion.p>
         </div>
 
@@ -58,13 +60,7 @@ export const LandingPage = memo(({ onLogin }: { onLogin: () => void }) => {
           </button>
           
           <div className="p-1 px-[2px] bg-white/20 backdrop-blur-xl border border-white/50 rounded-3xl flex items-center gap-3">
-             <div className="flex -space-x-2 p-2">
-               {[1,2,3].map(i => (
-                 <img key={i} src={`https://picsum.photos/seed/user${i}/40/40`} className="w-8 h-8 rounded-full border-2 border-white" alt="" />
-               ))}
-               <div className="w-8 h-8 rounded-full bg-accent border-2 border-white flex items-center justify-center text-[8px] font-black text-white">+5K</div>
-             </div>
-             <div className="pr-4 py-2">
+             <div className="pr-4 py-3 pl-6">
                <div className="text-[10px] font-black uppercase text-accent leading-none">PEJUANG TERDAFTAR</div>
                <div className="text-[9px] text-text-muted font-medium">Bergabung dengan 5,000+ sobat lainnya.</div>
              </div>
@@ -93,9 +89,6 @@ export const LandingPage = memo(({ onLogin }: { onLogin: () => void }) => {
         </div>
       </motion.div>
 
-      {/* Floating decorative elements */}
-      <div className="absolute top-20 left-10 w-32 h-32 bg-accent/20 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-20 right-10 w-48 h-48 bg-gold/10 rounded-full blur-3xl animate-pulse" />
     </div>
   );
 });

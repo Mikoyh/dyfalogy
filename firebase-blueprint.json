@@ -2,20 +2,42 @@
   "entities": {
     "UserProfile": {
       "title": "User Profile",
-      "description": "Stores user progress, level, and preferences.",
+      "description": "Stores user progress, level, and learning analytics.",
       "type": "object",
       "properties": {
         "uid": { "type": "string", "description": "Firebase Auth UID" },
         "displayName": { "type": "string" },
         "email": { "type": "string" },
         "photoURL": { "type": "string" },
-        "level": { "type": "integer", "description": "Current learning level" },
+        "level": { "type": "integer", "description": "Current learning level (1-50)" },
         "xp": { "type": "integer", "description": "Experience points" },
-        "completedLessons": { "type": "array", "items": { "type": "string" } },
+        "unlockedTopics": { "type": "array", "items": { "type": "string" } },
+        "topicStats": { 
+          "type": "object", 
+          "description": "Topic ID to mastery score mapping (0-100)"
+        },
+        "dailyStreak": { "type": "integer" },
+        "lastActive": { "type": "string", "format": "date-time" },
         "badges": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email"]
+    },
+    "Flashcard": {
+      "title": "Flashcard",
+      "description": "Spaced repetition card for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "front": { "type": "string" },
+        "back": { "type": "string" },
+        "topic": { "type": "string" },
+        "easeFactor": { "type": "number", "description": "Anki-style ease factor" },
+        "interval": { "type": "integer", "description": "Days until next review" },
+        "nextReview": { "type": "string", "format": "date-time" },
+        "consecutiveCorrect": { "type": "integer" }
+      },
+      "required": ["userId", "front", "back"]
     },
     "ForumTopic": {
       "title": "Forum Topic",
@@ -93,6 +115,10 @@
     "/users/{userId}/quizResults/{resultId}": {
       "schema": "QuizResult",
       "description": "User specific quiz results"
+    },
+    "/users/{userId}/flashcards/{cardId}": {
+      "schema": "Flashcard",
+      "description": "User's flashcards for spaced repetition"
     }
   }
 }

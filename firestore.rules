@@ -12,11 +12,17 @@ service cloud.firestore {
     //   - displayName: string
     //   - email: string (required)
     //   - photoURL: string
-    //   - level: number
+    //   - level: number (current level 1-50)
     //   - xp: number
-    //   - completedLessons: list
+    //   - unlockedTopics: list
+    //   - topicStats: map (Topic ID -> Score)
+    //   - dailyStreak: number
+    //   - lastActive: timestamp/string
     //   - badges: list
     //   - createdAt: timestamp
+    //
+    // Collection: flashcards
+    // Fields: userId, front, back, topic, easeFactor, interval, nextReview, consecutiveCorrect
     //
     // Collection: forumTopics
     // Fields: title, content, authorId, authorName, authorPhoto, replyCount, createdAt
@@ -67,6 +73,11 @@ service cloud.firestore {
       match /quizResults/{resultId} {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId);
+      }
+
+      match /flashcards/{cardId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId);
       }
     }
 

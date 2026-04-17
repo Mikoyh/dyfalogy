@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef, memo, useMemo, useCallback, Suspense } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, signInWithGoogle, logout, db } from './lib/firebase';
-import { doc, getDoc, setDoc, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, updateDoc, increment, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, updateDoc, increment, deleteDoc, where } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   BookOpen, 
@@ -43,8 +43,10 @@ import {
   CheckCheck
 } from 'lucide-react';
 import { LESSONS, STUDY_STRATEGIES, BADGES, Lesson, Badge, CATEGORIES } from './constants/data';
-import { getGeminiResponse, generateQuiz, generateTTS } from './lib/gemini';
 import ReactMarkdown from 'react-markdown';
+import { BIOLOGY_CURRICULUM } from './constants/learning';
+import { getGeminiResponse, generateQuiz, generateTTS } from './lib/gemini';
+import { useGamification } from './hooks/useGamification';
 import { cn } from './lib/utils';
 const Navbar = React.lazy(() => import('./components/Navbar').then(module => ({ default: module.Navbar })));
 const Sidebar = React.lazy(() => import('./components/Sidebar').then(module => ({ default: module.Sidebar })));
@@ -56,6 +58,9 @@ const AuthPage = React.lazy(() => import('./components/AuthPage').then(module =>
 const Forum = React.lazy(() => import('./components/Forum').then(module => ({ default: module.Forum })));
 const OsnArchive = React.lazy(() => import('./components/OsnArchive').then(module => ({ default: module.OsnArchive })));
 const CustomerService = React.lazy(() => import('./components/CustomerService').then(module => ({ default: module.CustomerService })));
+const LearningPath = React.lazy(() => import('./components/LearningPath').then(module => ({ default: module.LearningPath })));
+const Flashcards = React.lazy(() => import('./components/Flashcards').then(module => ({ default: module.Flashcards })));
+const Analytics = React.lazy(() => import('./components/Analytics').then(module => ({ default: module.Analytics })));
 
 const ConfirmationModal = ({ 
   isOpen, 
@@ -144,7 +149,7 @@ const ReactionButton = ({ count, icon, active, onClick }: { count: number, icon:
 
 export default function App() {
   const [user, loading] = useAuthState(auth);
-  const [userData, setUserData] = useState<any>(null);
+  const { userData, addXp, updateTopicMastery, reviewFlashcard } = useGamification(user);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -171,6 +176,8 @@ export default function App() {
 
   // History state
   const [quizHistory, setQuizHistory] = useState<any[]>([]);
+  const [flashcards, setFlashcards] = useState<any[]>([]);
+  const [reviewingCards, setReviewingCards] = useState<any[]>([]);
 
   // Audio state
   const [isTtsPlaying, setIsTtsPlaying] = useState(false);
@@ -178,6 +185,7 @@ export default function App() {
   // Quiz states
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
   const [isQuizActive, setIsQuizActive] = useState(false);
+  const [showQuizCloseConfirm, setShowQuizCloseConfirm] = useState(false);
   const [isQuizLoading, setIsQuizLoading] = useState(false);
   const [quizResult, setQuizResult] = useState<{ score: number, correct: number } | null>(null);
   
@@ -187,26 +195,23 @@ export default function App() {
   useEffect(() => {
     if (user) {
       const userRef = doc(db, 'users', user.uid);
-      const unsubscribe = onSnapshot(userRef, (docSnap) => {
-        if (docSnap.exists()) {
-          setUserData(docSnap.data());
-        } else {
-          const newData = {
+      getDoc(userRef).then(snap => {
+        if (!snap.exists()) {
+          setDoc(userRef, {
             uid: user.uid,
             displayName: user.displayName,
             email: user.email,
             photoURL: user.photoURL,
             level: 1,
             xp: 0,
-            completedLessons: [],
+            unlockedTopics: ['cell-structure', 'macromolecules'],
+            topicStats: {},
+            dailyStreak: 0,
             badges: [],
             createdAt: new Date().toISOString()
-          };
-          setDoc(userRef, newData);
-          setUserData(newData);
+          });
         }
       });
-      return () => unsubscribe();
     }
   }, [user]);
 
@@ -246,8 +251,15 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+    if (user) {
+      const cardsRef = collection(db, 'users', user.uid, 'flashcards');
+      const q = query(cardsRef, where('nextReview', '<=', new Date().toISOString()));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setReviewingCards(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
 
   // Optimized memoized functions
   const handleSendMessage = useCallback(async (e?: React.FormEvent) => {
@@ -317,7 +329,19 @@ export default function App() {
     setIsQuizLoading(true);
     setQuizResult(null);
     try {
-      const questions = await generateQuiz(lesson.title, lesson.content, quizConfig.count);
+      const weakTopics = userData?.topicStats 
+        ? Object.entries(userData.topicStats)
+            .filter(([_, score]: [any, any]) => score < 70)
+            .map(([id]) => BIOLOGY_CURRICULUM.find(t => t.id === id)?.title || id)
+        : [];
+
+      const questions = await generateQuiz(
+        lesson.title, 
+        lesson.content, 
+        quizConfig.count, 
+        false, 
+        weakTopics
+      );
       setQuizQuestions(questions);
       setIsQuizActive(true);
     } catch (error) {
@@ -329,7 +353,7 @@ export default function App() {
   }, [quizConfig.count]);
 
   const handleFinishQuiz = useCallback(async (score: number, correct: number) => {
-    if (!user || !userData || !selectedLesson) return;
+    if (!user || !selectedLesson) return;
     
     setQuizResult({ score, correct });
     setIsQuizActive(false);
@@ -343,36 +367,14 @@ export default function App() {
       timestamp: serverTimestamp()
     });
 
-    if (score >= 70) {
-      const userRef = doc(db, 'users', user.uid);
-      const newCompleted = [...(userData.completedLessons || [])];
-      if (!newCompleted.includes(selectedLesson.id)) {
-        newCompleted.push(selectedLesson.id);
-        
-        const newXp = (userData.xp || 0) + selectedLesson.xpReward;
-        const newLevel = Math.floor(newXp / 500) + 1;
-        
-        const newBadges = [...(userData.badges || [])];
-        if (newCompleted.length === 1 && !newBadges.includes('first-lesson')) {
-          newBadges.push('first-lesson');
-        }
-        const molBioLessons = LESSONS.filter(l => l.category === 'Biologi Sel & Molekuler').map(l => l.id);
-        if (molBioLessons.every(id => newCompleted.includes(id)) && !newBadges.includes('mol-master')) {
-          newBadges.push('mol-master');
-        }
-        if (newLevel >= 5 && !newBadges.includes('level-5')) {
-          newBadges.push('level-5');
-        }
-
-        await updateDoc(userRef, {
-          xp: newXp,
-          level: newLevel,
-          completedLessons: newCompleted,
-          badges: newBadges
-        });
-      }
+    if (selectedLesson.topicId) {
+      await updateTopicMastery(selectedLesson.topicId, score);
     }
-  }, [user, userData, selectedLesson, quizQuestions.length]);
+
+    if (score >= 70) {
+      await addXp(selectedLesson.xpReward);
+    }
+  }, [user, selectedLesson, quizQuestions.length, updateTopicMastery, addXp]);
 
   // Optimized Search with Debounce
   const searchTimeoutRef = useRef<NodeJS.Timeout>(null);
@@ -677,6 +679,33 @@ export default function App() {
                       </div>
                     </div>
 
+                    <div className="glass-card rounded-2xl p-6 bg-accent text-white relative overflow-hidden group">
+                      <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
+                        <Zap size={100} />
+                      </div>
+                      <div className="relative z-10">
+                        <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-1">Misi Harian</div>
+                        <h3 className="text-xl font-black mb-4">Daily Active Recall ⚡</h3>
+                        <p className="text-xs text-white/70 mb-6 leading-relaxed">Kerjakan 3 soal acak dari materi yang sudah kamu pelajari untuk menjaga ingatan jangka panjang.</p>
+                        <button 
+                          onClick={() => {
+                            const completed = LESSONS.filter(l => (userData?.completedLessons || []).includes(l.id));
+                            if (completed.length > 0) {
+                              const randomLesson = completed[Math.floor(Math.random() * completed.length)];
+                              setSelectedLesson(randomLesson);
+                              setQuizConfig({ count: 3, timer: 60 });
+                              setActiveTab('lessons');
+                            } else {
+                              setActiveTab('lessons');
+                            }
+                          }}
+                          className="bg-white text-accent px-6 py-2.5 rounded-xl text-xs font-black shadow-lg hover:scale-105 transition-all active:scale-95"
+                        >
+                          Mulai Recall (3 Soal)
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="glass-card rounded-2xl p-6">
                       <div className="text-base font-bold mb-4 flex items-center gap-2">
                         <Star size={18} className="text-gold" /> Rekomendasi Untukmu
@@ -702,6 +731,10 @@ export default function App() {
                         ))}
                       </div>
                     </div>
+
+                    <Suspense fallback={<div className="h-40 glass-card animate-pulse" />}>
+                      <Analytics topicStats={userData?.topicStats || {}} />
+                    </Suspense>
                   </div>
 
                   <div className="space-y-6">
@@ -766,7 +799,19 @@ export default function App() {
                       questions={quizQuestions} 
                       timerSeconds={quizConfig.timer}
                       onFinish={handleFinishQuiz} 
-                      onCancel={() => setIsQuizActive(false)} 
+                      onCancel={() => setShowQuizCloseConfirm(true)} 
+                    />
+                    <ConfirmationModal 
+                      isOpen={showQuizCloseConfirm}
+                      onClose={() => setShowQuizCloseConfirm(false)}
+                      onConfirm={() => {
+                        setIsQuizActive(false);
+                        setShowQuizCloseConfirm(false);
+                      }}
+                      title="Akhiri Quiz?"
+                      message="Progress quiz ini tidak akan disimpan dan anda akan mengulang dari awal jika kembali."
+                      confirmText="Ya, Akhiri"
+                      isDanger={true}
                     />
                   </Suspense>
                 ) : selectedLesson ? (
@@ -798,6 +843,24 @@ export default function App() {
                       <div className="prose prose-emerald max-w-none text-text-main leading-relaxed">
                         <ReactMarkdown>{selectedLesson.content}</ReactMarkdown>
                       </div>
+
+                      {selectedLesson.topicId && (
+                        <div className="mt-8 p-6 bg-accent/5 rounded-[32px] border border-accent/10">
+                          <h4 className="text-sm font-black text-accent uppercase tracking-[0.2em] mb-4">🔗 Koneksi Materi</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {BIOLOGY_CURRICULUM.find(t => t.id === selectedLesson.topicId)?.prerequisites.map(preId => (
+                              <div key={preId} className="px-3 py-1.5 bg-white rounded-xl text-[10px] font-bold text-text-muted border border-border shadow-sm">
+                                Membutuhkan: {BIOLOGY_CURRICULUM.find(t => t.id === preId)?.title}
+                              </div>
+                            ))}
+                            {BIOLOGY_CURRICULUM.filter(t => t.prerequisites.includes(selectedLesson.topicId || '')).map(next => (
+                              <div key={next.id} className="px-3 py-1.5 bg-emerald-50 rounded-xl text-[10px] font-black text-emerald-600 border border-emerald-100 shadow-sm">
+                                Lanjut ke: {next.title}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       
                       <div className="pt-6 border-t border-white/20">
                         <div className="text-sm font-bold mb-4 flex items-center gap-2">
@@ -927,6 +990,50 @@ export default function App() {
                     </div>
                   </div>
                 )}
+              </motion.div>
+            )}
+
+            {activeTab === 'learning-path' && (
+              <motion.div 
+                key="learning-path"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                <Suspense fallback={<div className="h-full flex items-center justify-center"><Zap className="animate-pulse text-accent" size={48} /></div>}>
+                  <LearningPath 
+                    userLevel={userData?.level || 1}
+                    xp={userData?.xp || 0}
+                    unlockedTopics={userData?.unlockedTopics || ['cell-structure', 'macromolecules']}
+                    topicStats={userData?.topicStats || {}}
+                    onSelectTopic={(id) => {
+                      const topic = BIOLOGY_CURRICULUM.find(t => t.id === id);
+                      if (topic) {
+                        // For now we map learning topics to lesson categories or specific lessons
+                        // Or we can just filter the lessons tab
+                        setActiveCategory(topic.title);
+                        setActiveTab('lessons');
+                      }
+                    }}
+                  />
+                </Suspense>
+              </motion.div>
+            )}
+
+            {activeTab === 'flashcards' && (
+              <motion.div 
+                key="flashcards"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+              >
+                <Suspense fallback={<div className="h-full flex items-center justify-center"><Brain className="animate-pulse text-accent" size={48} /></div>}>
+                  <Flashcards 
+                    cards={reviewingCards}
+                    onReview={reviewFlashcard}
+                    onClose={() => setActiveTab('dashboard')}
+                  />
+                </Suspense>
               </motion.div>
             )}
 

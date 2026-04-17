@@ -45,6 +45,7 @@ export const Quiz = memo(({ questions, timerSeconds, onFinish, onCancel }: { que
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [statementAnswers, setStatementAnswers] = useState<(boolean | null)[]>([null, null, null, null]);
   const [showExplanation, setShowExplanation] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerSeconds || 0);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -62,21 +63,38 @@ export const Quiz = memo(({ questions, timerSeconds, onFinish, onCancel }: { que
   }, [timeLeft, timerSeconds]);
 
   const handleNext = () => {
-    if (selectedOption === currentQuestion.correctAnswer) {
-      setScore(score + 1);
+    let isCorrect = false;
+    if (currentQuestion.type === 'MULTIPLE_STATEMENTS') {
+      // Calculate accuracy for statements (OSN style)
+      const correctCount = statementAnswers.filter((ans, idx) => ans === currentQuestion.statements[idx].isCorrect).length;
+      // In OSN, usually getting all 4 right gives 1 full point, or 0.5 for 2-3, etc.
+      // We'll simplify: 1 point if all 4 correct, 0.5 if 3 correct.
+      if (correctCount === 4) setScore(score + 1);
+      else if (correctCount === 3) setScore(score + 0.5);
+      isCorrect = correctCount === 4;
+    } else {
+      if (selectedOption === currentQuestion.correctAnswer) {
+        setScore(score + 1);
+        isCorrect = true;
+      }
     }
     
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(currentIndex + 1);
       setSelectedOption(null);
+      setStatementAnswers([null, null, null, null]);
       setShowExplanation(false);
       if (timerSeconds) setTimeLeft(timerSeconds);
     } else {
-      const finalCorrect = score + (selectedOption === currentQuestion.correctAnswer ? 1 : 0);
+      const finalCorrect = score + (isCorrect ? (currentQuestion.type === 'MULTIPLE_STATEMENTS' ? (statementAnswers.filter((ans, idx) => ans === currentQuestion.statements[idx].isCorrect).length === 4 ? 1 : 0.5) : 1) : 0);
       const finalScore = (finalCorrect / questions.length) * 100;
       onFinish(finalScore, finalCorrect);
     }
   };
+
+  const isAnswered = currentQuestion.type === 'MULTIPLE_STATEMENTS' 
+    ? statementAnswers.every(ans => ans !== null)
+    : selectedOption !== null;
 
   return (
     <div className="glass-card rounded-2xl p-8 space-y-6 max-w-2xl mx-auto relative overflow-hidden">
@@ -120,62 +138,113 @@ export const Quiz = memo(({ questions, timerSeconds, onFinish, onCancel }: { que
         <div className="h-full bg-accent transition-all duration-300" style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }} />
       </div>
 
-      <h3 className="text-lg font-bold text-text-main leading-relaxed">{currentQuestion.question}</h3>
-
-      <div className="space-y-3">
-        {currentQuestion.options.map((option: string, idx: number) => (
-          <button
-            key={idx}
-            disabled={showExplanation}
-            onClick={() => setSelectedOption(idx)}
-            className={cn(
-              "w-full text-left p-4 rounded-xl border transition-all text-sm group",
-              selectedOption === idx 
-                ? "border-accent bg-accent/5 font-bold" 
-                : "border-white/50 bg-white/20 hover:bg-white/40",
-              showExplanation && idx === currentQuestion.correctAnswer && "border-emerald-500 bg-emerald-50/50 [box-shadow:0_0_20px_rgba(16,185,129,0.2)]",
-              showExplanation && selectedOption === idx && idx !== currentQuestion.correctAnswer && "border-red-500 bg-red-50/50"
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <span className="w-6 h-6 rounded-full border border-current flex items-center justify-center text-[10px] shrink-0">
-                {String.fromCharCode(65 + idx)}
-              </span>
-              <div className="flex-1">
-                <div className="mb-1">{option}</div>
-                {showExplanation && currentQuestion.optionExplanations && (
-                  <motion.div 
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    className={cn(
-                      "mt-2 text-[10px] font-medium leading-relaxed p-3 rounded-lg border-l-2",
-                      idx === currentQuestion.correctAnswer 
-                        ? "bg-emerald-500/10 border-emerald-500 text-emerald-700" 
-                        : "bg-red-500/10 border-red-500 text-red-700"
-                    )}
-                  >
-                    <div className="font-black uppercase tracking-tighter text-[8px] mb-1 opacity-60">Penjelasan Opsi {String.fromCharCode(65 + idx)}</div>
-                    {currentQuestion.optionExplanations[idx]}
-                  </motion.div>
-                )}
-              </div>
-            </div>
-          </button>
-        ))}
+      <div className="space-y-2">
+        {currentQuestion.type === 'MULTIPLE_STATEMENTS' && (
+          <div className="text-[10px] font-bold text-accent/60 uppercase tracking-tighter">Format: Tentukan Benar (B) atau Salah (S)</div>
+        )}
+        <h3 className="text-lg font-bold text-text-main leading-relaxed">{currentQuestion.question}</h3>
       </div>
 
-      {showExplanation && !currentQuestion.optionExplanations && (
+      <div className="space-y-3">
+        {currentQuestion.type === 'MULTIPLE_STATEMENTS' ? (
+          <div className="space-y-4">
+            {currentQuestion.statements.map((stmt: any, idx: number) => (
+              <div key={idx} className="p-4 rounded-2xl border border-white/50 bg-white/10 space-y-3">
+                <div className="flex gap-4 items-start">
+                  <span className="w-6 h-6 rounded-full bg-accent/20 text-accent flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">{String.fromCharCode(65 + idx)}</span>
+                  <p className="text-sm font-medium leading-relaxed flex-1">{stmt.text}</p>
+                </div>
+                <div className="flex gap-2">
+                  {[true, false].map((val) => {
+                    const isSelected = statementAnswers[idx] === val;
+                    const isCorrect = stmt.isCorrect === val;
+                    return (
+                      <button
+                        key={val ? 'B' : 'S'}
+                        disabled={showExplanation}
+                        onClick={() => {
+                          const newAns = [...statementAnswers];
+                          newAns[idx] = val;
+                          setStatementAnswers(newAns);
+                        }}
+                        className={cn(
+                          "flex-1 py-2 rounded-xl text-xs font-bold transition-all border",
+                          isSelected
+                            ? (showExplanation 
+                                ? (isCorrect ? "bg-emerald-500 border-emerald-500 text-white" : "bg-red-500 border-red-500 text-white")
+                                : "bg-accent border-accent text-white")
+                            : (showExplanation && isCorrect 
+                                ? "border-emerald-500 text-emerald-600 bg-emerald-50" 
+                                : "bg-white/40 border-transparent text-text-muted hover:bg-white/60")
+                        )}
+                      >
+                        {val ? 'Benar (B)' : 'Salah (S)'}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          currentQuestion.options.map((option: string, idx: number) => (
+            <button
+              key={idx}
+              disabled={showExplanation}
+              onClick={() => setSelectedOption(idx)}
+              className={cn(
+                "w-full text-left p-4 rounded-xl border transition-all text-sm group",
+                selectedOption === idx 
+                  ? "border-accent bg-accent/5 font-bold" 
+                  : "border-white/50 bg-white/20 hover:bg-white/40",
+                showExplanation && idx === currentQuestion.correctAnswer && "border-emerald-500 bg-emerald-50/50 [box-shadow:0_0_20px_rgba(16,185,129,0.2)]",
+                showExplanation && selectedOption === idx && idx !== currentQuestion.correctAnswer && "border-red-500 bg-red-50/50"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-6 h-6 rounded-full border border-current flex items-center justify-center text-[10px] shrink-0">
+                  {String.fromCharCode(65 + idx)}
+                </span>
+                <div className="flex-1">
+                  <div className="mb-1">{option}</div>
+                  {showExplanation && currentQuestion.optionExplanations && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      className={cn(
+                        "mt-2 text-[10px] font-medium leading-relaxed p-3 rounded-lg border-l-2",
+                        idx === currentQuestion.correctAnswer 
+                          ? "bg-emerald-500/10 border-emerald-500 text-emerald-700" 
+                          : "bg-red-500/10 border-red-500 text-red-700"
+                      )}
+                    >
+                      <div className="font-black uppercase tracking-tighter text-[8px] mb-1 opacity-60">Penjelasan Opsi {String.fromCharCode(65 + idx)}</div>
+                      {currentQuestion.optionExplanations[idx]}
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+
+      {showExplanation && (
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 bg-accent/5 rounded-xl border border-accent/20 text-xs text-text-muted italic"
+          className="p-5 bg-accent/5 rounded-2xl border border-accent/20 text-xs text-text-muted leading-relaxed"
         >
-          <strong>Penjelasan:</strong> {currentQuestion.explanation}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-1.5 h-4 bg-accent rounded-full" />
+            <span className="font-bold text-text-main uppercase tracking-tighter">Pembahasan</span>
+          </div>
+          {currentQuestion.explanation}
         </motion.div>
       )}
 
       <button
-        disabled={selectedOption === null}
+        disabled={!isAnswered}
         onClick={() => {
           if (!showExplanation) {
             setShowExplanation(true);
@@ -185,7 +254,7 @@ export const Quiz = memo(({ questions, timerSeconds, onFinish, onCancel }: { que
         }}
         className={cn(
           "w-full py-4 rounded-xl text-sm font-bold shadow-xl transition-all",
-          selectedOption === null 
+          !isAnswered 
             ? "bg-gray-100 text-gray-400 cursor-not-allowed" 
             : "bg-accent text-white liquid-button active:scale-95"
         )}

@@ -353,11 +353,11 @@ export const Forum = memo(({
             {renderReplies(null)}
           </div>
 
-          <form onSubmit={handleCreateReply} className="sticky bottom-4 glass-card rounded-2xl md:rounded-3xl p-2 md:p-4 flex flex-col gap-2 md:gap-3 shadow-2xl z-30 mx-0 md:mx-auto max-w-full border-t border-white/20">
+          <form onSubmit={handleCreateReply} className="sticky bottom-4 glass-card rounded-2xl md:rounded-3xl p-2 md:p-4 flex flex-col gap-2 md:gap-3 shadow-2xl z-[100] mx-0 md:mx-auto max-w-full border-t border-white/20">
             {replyingTo && (
               <div className="flex justify-between items-center bg-accent/10 px-3 py-1 rounded-xl border border-accent/20">
-                <span className="text-[9px] md:text-[10px] font-bold text-accent">Membalas @{replyingTo.authorName}</span>
-                <button type="button" onClick={() => setReplyingTo(null)} className="text-text-muted hover:text-red-500"><X size={12} /></button>
+                <span className="text-[9px] md:text-[10px] font-bold text-accent truncate">Membalas @{replyingTo.authorName}</span>
+                <button type="button" onClick={() => setReplyingTo(null)} className="text-text-muted hover:text-red-500 shrink-0"><X size={12} /></button>
               </div>
             )}
             <div className="flex gap-2 items-center">
@@ -367,22 +367,22 @@ export const Forum = memo(({
                   value={newReplyContent}
                   onChange={(e) => setNewReplyContent(e.target.value)}
                   placeholder={replyingTo ? "Balas diskusi..." : "Tulis balasan publik..."}
-                  className="w-full bg-white/50 border border-border rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm focus:outline-none focus:border-accent transition-all pr-12"
+                  className="w-full bg-white/50 border border-border rounded-xl md:rounded-2xl px-3 md:px-4 py-2 md:py-3 text-[11px] md:text-sm focus:outline-none focus:border-accent transition-all pr-10"
                 />
                 <button 
                   type="button"
                   onClick={startListening}
                   className={cn(
-                    "absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all",
+                    "absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-1.5 md:p-2 rounded-xl transition-all",
                     isListening ? "bg-red-500 text-white animate-pulse" : "text-text-muted hover:text-accent"
                   )}
                 >
-                  <Mic size={16} />
+                  <Mic size={14} className="md:w-[16px] md:h-[16px]" />
                 </button>
               </div>
-              <button type="submit" className="bg-accent text-white p-2 md:px-6 md:py-3 rounded-xl md:rounded-2xl text-xs md:text-sm font-bold liquid-button shrink-0">
+              <button type="submit" className="bg-accent text-white p-2 md:px-6 md:py-3 rounded-xl md:rounded-2xl text-[11px] md:text-sm font-bold shadow-lg shadow-accent/20 shrink-0 active:scale-95 transition-all">
                 <span className="hidden md:inline">Kirim</span>
-                <Send size={16} className="md:hidden" />
+                <Send size={14} className="md:hidden" />
               </button>
             </div>
           </form>

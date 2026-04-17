@@ -46,6 +46,8 @@ export const Sidebar = memo(({
       label: 'Kurikulum',
       items: [
         { id: 'dashboard', icon: Brain, label: 'Dashboard' },
+        { id: 'learning-path', icon: Zap, label: 'Peta Belajar' },
+        { id: 'flashcards', icon: Brain, label: 'Flashcards Review' },
         { id: 'lessons', icon: BookOpen, label: 'Mulai Belajar' },
         { id: 'osn-archive', icon: Archive, label: 'Arsip OSN' },
       ]
