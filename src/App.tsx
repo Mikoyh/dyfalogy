@@ -39,7 +39,8 @@ import {
   FileText,
   Image as ImageIcon,
   Paperclip,
-  Trash2
+  Trash2,
+  CheckCheck
 } from 'lucide-react';
 import { LESSONS, STUDY_STRATEGIES, BADGES, Lesson, Badge, CATEGORIES } from './constants/data';
 import { getGeminiResponse, generateQuiz, generateTTS } from './lib/gemini';
@@ -1461,8 +1462,8 @@ const ChatInterface = ({
               <div className={cn(
                 "prose prose-sm max-w-none leading-relaxed", 
                 msg.role === 'user' 
-                  ? "prose-invert prose-p:text-white prose-headings:text-white prose-strong:text-white selection:bg-white/30" 
-                  : "prose-emerald selection:bg-accent/20"
+                  ? "prose-invert prose-p:text-white! prose-headings:text-white! prose-strong:text-white! selection:bg-white/30 text-white" 
+                  : "prose-emerald selection:bg-accent/20 text-text-main"
               )}>
                 <ReactMarkdown>
                   {msg.content}
@@ -1470,10 +1471,11 @@ const ChatInterface = ({
               </div>
               
               <div className={cn(
-                "text-[10px] mt-1 opacity-50 font-medium",
-                msg.role === 'user' ? "text-right" : "text-left"
+                "text-[10px] mt-2 flex items-center gap-1 font-medium",
+                msg.role === 'user' ? "justify-end text-white/50" : "justify-start text-text-muted/60"
               )}>
-                {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                {msg.role === 'user' && <CheckCheck size={12} className="text-white/60" />}
               </div>
             </div>
           </motion.div>
