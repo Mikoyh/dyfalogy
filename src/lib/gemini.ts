@@ -42,15 +42,38 @@ export const getGeminiResponse = async (prompt: string, history: any[] = []) => 
   return response.text;
 };
 
+export const generateTTS = async (text: string, voice: 'Puck' | 'Charon' | 'Kore' | 'Fenrir' | 'Zephyr' = 'Kore') => {
+  const ai = getAI();
+  if (!ai) throw new Error("AI client not initialized.");
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3.1-flash-tts-preview",
+    contents: [{ parts: [{ text: `Say clearly: ${text}` }] }],
+    config: {
+      responseModalities: ["AUDIO"],
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: { voiceName: voice },
+        },
+      },
+    },
+  });
+
+  const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  if (!base64Audio) throw new Error("Failed to generate audio.");
+
+  return base64Audio;
+};
+
 export const generateQuiz = async (topicTitle: string, topicContent: string, count: number = 10) => {
   const ai = getAI();
   if (!ai) throw new Error("AI client not initialized. Please check your API key.");
 
   const prompt = `Buatkan ${count} soal pilihan ganda (A, B, C, D, E) tentang topik: ${topicTitle}. 
     Gunakan materi berikut sebagai referensi: ${topicContent}.
-    Berikan jawaban yang benar untuk setiap soal.
     
-    CRITICAL: Untuk field 'explanation', berikan penjelasan yang sangat mendetail yang tidak hanya menjelaskan mengapa jawaban yang benar itu tepat, tetapi juga memberikan pengertian/definisi singkat dari opsi-opsi lain yang salah agar siswa bisa belajar lebih banyak.
+    CRITICAL: Kamu HARUS memberikan penjelasan untuk SETIAP opsi jawaban (baik yang benar maupun yang salah).
+    Penjelasan harus membantu siswa memahami mengapa sebuah opsi benar atau mengapa opsi tersebut salah/kurang tepat dalam konteks soal.
     
     Format output harus JSON ARRAY of OBJECTS dengan struktur:
     [
@@ -58,7 +81,14 @@ export const generateQuiz = async (topicTitle: string, topicContent: string, cou
         "question": "teks soal",
         "options": ["A", "B", "C", "D", "E"],
         "correctAnswer": 0, // index dari options (0-4)
-        "explanation": "Penjelasan mendalam: Jawaban [A] benar karena... Sedangkan [B] adalah... [C] merujuk pada... dst."
+        "optionExplanations": [
+          "Penjelasan untuk opsi A...",
+          "Penjelasan untuk opsi B...",
+          "Penjelasan untuk opsi C...",
+          "Penjelasan untuk opsi D...",
+          "Penjelasan untuk opsi E..."
+        ],
+        "explanation": "Ringkasan penjelasan umum/kunci jawaban"
       }
     ]`;
 
@@ -78,9 +108,13 @@ export const generateQuiz = async (topicTitle: string, topicContent: string, cou
               items: { type: Type.STRING }
             },
             correctAnswer: { type: Type.INTEGER },
+            optionExplanations: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            },
             explanation: { type: Type.STRING }
           },
-          required: ["question", "options", "correctAnswer", "explanation"]
+          required: ["question", "options", "correctAnswer", "optionExplanations", "explanation"]
         }
       }
     }

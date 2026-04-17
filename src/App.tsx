@@ -26,10 +26,20 @@ import {
   Plus,
   MessageCircle,
   Trophy,
-  Star
+  Star,
+  Mic,
+  Volume2,
+  HelpCircle,
+  Archive,
+  Search as SearchIcon,
+  ChevronDown,
+  Info,
+  ShieldCheck,
+  LifeBuoy,
+  FileText
 } from 'lucide-react';
 import { LESSONS, STUDY_STRATEGIES, BADGES, Lesson, Badge, CATEGORIES } from './constants/data';
-import { getGeminiResponse, generateQuiz } from './lib/gemini';
+import { getGeminiResponse, generateQuiz, generateTTS } from './lib/gemini';
 import ReactMarkdown from 'react-markdown';
 import { cn } from './lib/utils';
 import { AuthPage } from './components/AuthPage';
@@ -37,7 +47,31 @@ import { ProfilePage } from './components/ProfilePage';
 
 // --- Components ---
 
-const Navbar = ({ user, onLogout, activeTab, onToggleAi, onToggleSidebar, onProfileClick }: { user: any, onLogout: () => void, activeTab: string, onToggleAi: () => void, onToggleSidebar: () => void, onProfileClick: () => void }) => (
+const Navbar = ({ 
+  user, 
+  onLogout, 
+  activeTab, 
+  onToggleAi, 
+  onToggleSidebar, 
+  onProfileClick,
+  onSearch,
+  searchQuery,
+  setSearchQuery,
+  isListening,
+  startListening
+}: { 
+  user: any, 
+  onLogout: () => void, 
+  activeTab: string, 
+  onToggleAi: () => void, 
+  onToggleSidebar: () => void, 
+  onProfileClick: () => void,
+  onSearch: (q: string) => void,
+  searchQuery: string,
+  setSearchQuery: (q: string) => void,
+  isListening: boolean,
+  startListening: () => void
+}) => (
   <nav className="h-16 glass-nav flex items-center justify-between px-6 shrink-0 z-50 sticky top-0">
     <div className="flex items-center gap-3">
       <button 
@@ -48,17 +82,44 @@ const Navbar = ({ user, onLogout, activeTab, onToggleAi, onToggleSidebar, onProf
       </button>
       <div className="text-sm font-medium flex items-center gap-2">
         <span className="text-text-muted hidden sm:inline">dyfalogy /</span> 
-        <span className="font-bold text-accent">
+        <span className="font-bold text-accent whitespace-nowrap overflow-hidden text-ellipsis max-w-[100px] sm:max-w-none">
           {activeTab === 'dashboard' ? 'Overview' : 
            activeTab === 'lessons' ? 'Mulai Belajar' : 
            activeTab === 'strategies' ? 'Strategi Belajar' : 
            activeTab === 'forum' ? 'Komunitas' : 
-           activeTab === 'profile' ? 'Profil Saya' : 'Chat'}
+           activeTab === 'profile' ? 'Profil Saya' : 
+           activeTab === 'osn-archive' ? 'Arsip OSN' :
+           activeTab === 'customer-service' ? 'Layanan Pelanggan' : 'Dyfa AI'}
         </span>
       </div>
     </div>
+
+    <div className="flex-1 max-w-md mx-6 hidden md:block relative group">
+      <div className="relative">
+        <SearchIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-accent transition-colors" />
+        <input 
+          type="text" 
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            onSearch(e.target.value);
+          }}
+          placeholder="Cari materi, strategi, atau topik..." 
+          className="w-full bg-white/40 border border-white/50 rounded-full py-2.5 pl-11 pr-12 text-sm focus:outline-none focus:bg-white/80 focus:border-accent/40 shadow-sm transition-all"
+        />
+        <button 
+          onClick={startListening}
+          className={cn(
+            "absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all",
+            isListening ? "bg-red-500 text-white animate-pulse" : "text-text-muted hover:bg-accent/10 hover:text-accent"
+          )}
+        >
+          <Mic size={16} />
+        </button>
+      </div>
+    </div>
     
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-3 sm:gap-4">
       <button 
         onClick={onToggleAi}
         className="xl:hidden p-2 text-accent hover:bg-accent/10 rounded-full transition-all"
@@ -106,20 +167,45 @@ const Navbar = ({ user, onLogout, activeTab, onToggleAi, onToggleSidebar, onProf
   </nav>
 );
 
-const Sidebar = ({ activeTab, setActiveTab, isOpen, onClose }: { activeTab: string, setActiveTab: (t: string) => void, isOpen: boolean, onClose: () => void }) => {
+const Sidebar = ({ 
+  activeTab, 
+  setActiveTab, 
+  isOpen, 
+  onClose,
+  quizHistory,
+  onSelectLesson,
+  onSearch,
+  searchQuery,
+  setSearchQuery,
+  startListening,
+  isListening
+}: { 
+  activeTab: string, 
+  setActiveTab: (t: string) => void, 
+  isOpen: boolean, 
+  onClose: () => void,
+  quizHistory: any[],
+  onSelectLesson: (l: Lesson) => void,
+  onSearch: (q: string) => void,
+  searchQuery: string,
+  setSearchQuery: (q: string) => void,
+  startListening: () => void,
+  isListening: boolean
+}) => {
   const groups = [
     {
       label: 'Kurikulum',
       items: [
         { id: 'dashboard', icon: Brain, label: 'Dashboard' },
         { id: 'lessons', icon: BookOpen, label: 'Mulai Belajar' },
+        { id: 'osn-archive', icon: Archive, label: 'Arsip OSN' },
       ]
     },
     {
       label: 'Interaksi',
       items: [
         { id: 'forum', icon: Users, label: 'Forum Komunitas' },
-        { id: 'chat', icon: MessageSquare, label: 'Tanya AI' },
+        { id: 'chat', icon: MessageSquare, label: 'Dyfa AI' },
       ]
     },
     {
@@ -127,12 +213,13 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, onClose }: { activeTab: stri
       items: [
         { id: 'profile', icon: User, label: 'Profil Saya' },
         { id: 'strategies', icon: Zap, label: 'Strategi Belajar' },
+        { id: 'customer-service', icon: LifeBuoy, label: 'Pusat Bantuan' },
       ]
     }
   ];
 
   const content = (
-    <div className="w-[260px] h-full glass-sidebar text-white flex flex-col p-6 shrink-0 relative">
+    <div className="w-[280px] h-full glass-sidebar text-white flex flex-col p-6 shrink-0 relative overflow-y-auto no-scrollbar">
       <button 
         onClick={onClose}
         className="lg:hidden absolute top-6 right-6 p-1 text-white/50 hover:text-white transition-colors"
@@ -140,38 +227,101 @@ const Sidebar = ({ activeTab, setActiveTab, isOpen, onClose }: { activeTab: stri
         <X size={20} />
       </button>
 
-      <div className="text-2xl font-extrabold tracking-tighter text-[#74C69D] mb-10 flex items-center gap-3">
+      <div className="text-2xl font-extrabold tracking-tighter text-[#74C69D] mb-8 flex items-center gap-3">
         <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-xl shadow-accent/30">
           <Brain size={22} />
         </div>
         DYFALOGY
       </div>
+
+      {/* Sidebar Search */}
+      <div className="mb-6 relative group lg:hidden">
+        <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-accent transition-colors" />
+        <input 
+          type="text" 
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            onSearch(e.target.value);
+          }}
+          placeholder="Cari sesuatu..." 
+          className="w-full bg-white/10 border border-white/20 rounded-xl py-2 pl-9 pr-10 text-xs focus:outline-none focus:bg-white/20 focus:border-accent transition-all text-white placeholder:text-white/30"
+        />
+        <button 
+          onClick={startListening}
+          className={cn(
+            "absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all",
+            isListening ? "bg-red-500 text-white animate-pulse" : "text-white/40 hover:text-accent"
+          )}
+        >
+          <Mic size={14} />
+        </button>
+      </div>
       
-      <div className="space-y-8">
+      <div className="space-y-6">
         {groups.map((group) => (
-          <div key={group.label} className="space-y-4">
+          <div key={group.label} className="space-y-3">
             <div className="text-[10px] font-bold uppercase tracking-widest text-[#40916C] opacity-60 px-3">
               {group.label}
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {group.items.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => { setActiveTab(item.id); onClose(); }}
                   className={cn(
-                    "w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm transition-all duration-300 liquid-button",
+                    "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-300",
                     activeTab === item.id 
-                      ? "bg-accent text-white shadow-xl shadow-accent/30 scale-[1.02]" 
+                      ? "bg-accent text-white shadow-lg shadow-accent/20" 
                       : "text-white/60 hover:bg-white/10 hover:text-white"
                   )}
                 >
-                  <item.icon size={18} />
+                  <item.icon size={16} />
                   <span className="font-medium">{item.label}</span>
                 </button>
               ))}
             </div>
           </div>
         ))}
+
+        {/* Recent History Section */}
+        {quizHistory.length > 0 && (
+          <div className="space-y-3 pt-4 border-t border-white/10">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-accent px-3">
+              Materi Terakhir
+            </div>
+            <div className="space-y-1">
+              {quizHistory.map((res) => {
+                const lesson = LESSONS.find(l => l.id === res.lessonId);
+                if (!lesson) return null;
+                const progress = res.score || 0;
+                return (
+                  <button
+                    key={res.lessonId}
+                    onClick={() => { 
+                      onSelectLesson(lesson); 
+                      setActiveTab('lessons'); 
+                      onClose(); 
+                    }}
+                    className="w-full group px-4 py-2.5 rounded-xl hover:bg-white/5 transition-all text-left"
+                  >
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-[11px] font-bold text-white/80 line-clamp-1 group-hover:text-accent transition-colors">{lesson.title}</span>
+                      <span className="text-[9px] font-mono text-white/40">{progress.toFixed(0)}%</span>
+                    </div>
+                    <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        className={cn("h-full transition-all", progress >= 70 ? "bg-emerald-400" : "bg-accent")}
+                      />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-auto pt-6 border-t border-white/10">
@@ -556,13 +706,19 @@ const Quiz = ({ questions, timerSeconds, onFinish, onCancel }: { questions: any[
                 {String.fromCharCode(65 + idx)}
               </span>
               <div className="flex-1">
-                <div>{option}</div>
+                <div className="mb-1">{option}</div>
                 {showExplanation && currentQuestion.optionExplanations && (
                   <motion.div 
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
-                    className="mt-2 text-[10px] font-normal italic opacity-70 border-t border-current/10 pt-2"
+                    className={cn(
+                      "mt-2 text-[10px] font-medium leading-relaxed p-3 rounded-lg border-l-2",
+                      idx === currentQuestion.correctAnswer 
+                        ? "bg-emerald-500/10 border-emerald-500 text-emerald-700" 
+                        : "bg-red-500/10 border-red-500 text-red-700"
+                    )}
                   >
+                    <div className="font-black uppercase tracking-tighter text-[8px] mb-1 opacity-60">Penjelasan Opsi {String.fromCharCode(65 + idx)}</div>
                     {currentQuestion.optionExplanations[idx]}
                   </motion.div>
                 )}
@@ -997,6 +1153,214 @@ const Forum = ({ user, onProfileClick }: { user: any, onProfileClick: (uid: stri
   );
 };
 
+// --- Archive Component ---
+const OsnArchive = () => {
+  const [selectedYear, setSelectedYear] = useState('2025');
+
+  const papers = [
+    { year: '2025', title: 'OSN-K Biologi 2025', difficulty: 'Easy', link: 'https://drive.google.com/drive/folders/1fwxIyR-yEt3k7Iv7b2OV2fFgxIasxKfx' },
+    { year: '2025', title: 'OSN-P Biologi 2025', difficulty: 'Medium', link: 'https://drive.google.com/drive/folders/1fwxIyR-yEt3k7Iv7b2OV2fFgxIasxKfx' },
+    { year: '2024', title: 'OSN-K Biologi 2024', difficulty: 'Easy', link: 'https://drive.google.com/drive/folders/1fwxIyR-yEt3k7Iv7b2OV2fFgxIasxKfx' },
+    { year: '2024', title: 'OSN-P Biologi 2024', difficulty: 'Medium', link: 'https://drive.google.com/drive/folders/1fwxIyR-yEt3k7Iv7b2OV2fFgxIasxKfx' },
+    { year: '2024', title: 'OSN Nasional Biologi 2024', difficulty: 'Hard', link: 'https://drive.google.com/drive/folders/1fwxIyR-yEt3k7Iv7b2OV2fFgxIasxKfx' },
+    { year: '2023', title: 'Olimpiade Biologi 2023 Full Pack', difficulty: 'Varies', link: 'https://drive.google.com/drive/folders/1fwxIyR-yEt3k7Iv7b2OV2fFgxIasxKfx' },
+  ];
+
+  return (
+    <div className="space-y-8 max-w-5xl mx-auto">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h2 className="text-3xl font-black tracking-tight mb-2">Arsip Soal OSN Biology</h2>
+          <p className="text-text-muted text-sm italic">Kumpulan soal-soal kompetisi sains nasional dari tahun ke tahun.</p>
+        </div>
+        <div className="flex gap-3">
+          <select 
+            value={selectedYear} 
+            onChange={(e) => setSelectedYear(e.target.value)}
+            className="bg-white/40 border border-white/50 rounded-xl px-4 py-2 text-sm focus:outline-none"
+          >
+            {['2025', '2024', '2023', '2022', '2021', '2020'].map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {papers.filter(p => p.year === selectedYear).map((paper, idx) => (
+          <div key={idx} className="glass-card p-5 rounded-2xl flex flex-col justify-between group hover:border-accent transition-all">
+            <div className="space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] font-black uppercase text-accent bg-accent/10 px-2 py-0.5 rounded tracking-widest">{paper.year}</span>
+                <span className="text-[10px] font-bold text-text-muted italic">{paper.difficulty}</span>
+              </div>
+              <h3 className="text-base font-bold text-text-main group-hover:text-accent transition-colors">{paper.title}</h3>
+            </div>
+            <a 
+              href={paper.link} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="mt-6 flex items-center justify-center gap-2 w-full py-2.5 bg-white/20 hover:bg-white/40 border border-white/50 rounded-xl text-xs font-bold transition-all"
+            >
+              <FileText size={14} /> LIHAT DRIVE
+            </a>
+          </div>
+        ))}
+      </div>
+
+      <div className="p-8 bg-blue-500/10 rounded-[32px] border border-blue-500/20 flex flex-col md:flex-row items-center gap-8 shadow-xl">
+        <div className="w-20 h-20 bg-blue-500 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-lg shadow-blue-500/20">
+          <Archive size={40} />
+        </div>
+        <div className="space-y-2 text-center md:text-left">
+          <h4 className="text-xl font-bold">Punya Soal Lainnya?</h4>
+          <p className="text-sm text-text-muted">Gua tau lu punya koleksi soal maut pendahulu lu, kirim sini biar bermanfaat buat anak biologi lainnya se-Indonesia!</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Customer Service Component ---
+const CustomerService = ({ user }: { user: any }) => {
+  const [activeSubTab, setActiveSubTab] = useState('help');
+  const [feedback, setFeedback] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedback.trim() || !user) return;
+    setIsSubmitting(true);
+    try {
+      await addDoc(collection(db, 'feedback'), {
+        userId: user.uid,
+        userName: user.displayName,
+        content: feedback,
+        createdAt: serverTimestamp()
+      });
+      setFeedback('');
+      alert('Terima kasih! Masukan/Laporan kamu sangat berharga bagi kami.');
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-10">
+      <div className="text-center space-y-4">
+        <h2 className="text-4xl font-black tracking-tight">Pusat Bantuan & Layanan</h2>
+        <p className="text-text-muted italic leading-relaxed">Kami di sini untuk mendengar sobat pejuang olimpiade biologi.</p>
+      </div>
+
+      <div className="flex justify-center flex-wrap gap-2">
+        {['help', 'terms', 'privacy', 'feedback'].map(t => (
+          <button 
+            key={t}
+            onClick={() => setActiveSubTab(t)}
+            className={cn(
+              "px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
+              activeSubTab === t ? "bg-accent text-white shadow-lg shadow-accent/20" : "bg-white/40 text-text-muted hover:bg-white/60"
+            )}
+          >
+            {t === 'help' ? 'Info Web' : t === 'terms' ? 'Ketentuan' : t === 'privacy' ? 'Keamanan' : 'Request & Bug'}
+          </button>
+        ))}
+      </div>
+
+      <motion.div
+        key={activeSubTab}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card rounded-[32px] p-8 md:p-12 space-y-8"
+      >
+        {activeSubTab === 'help' && (
+          <div className="space-y-6">
+            <h3 className="text-2xl font-bold flex items-center gap-3">
+              <Info className="text-accent" /> Tentang dyfalogy
+            </h3>
+            <div className="prose prose-sm prose-emerald text-text-muted leading-[1.8]">
+              <p>dyfalogy adalah platform pembelajaran inovatif yang dirancang khusus untuk membantu para siswa di Indonesia dalam menghadapi Olimpiade Sains Nasional (OSN) di bidang Biologi.</p>
+              <p>Misi utama kami adalah demokratisasi akses materi pendidikan olimpiade yang berkualitas, dengan memanfaatkan teknologi AI terkini untuk personalisasi pembelajaran.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                <div className="p-4 bg-accent/5 rounded-2xl border border-accent/10 text-left">
+                  <h4 className="font-bold text-accent mb-2">Kurikulum Terupdate</h4>
+                  <p className="text-[11px]">Selalu menyesuaikan dengan silabus terakhir dari Pusprenas dan standar International Biology Olympiad (IBO).</p>
+                </div>
+                 <div className="p-4 bg-accent/5 rounded-2xl border border-accent/10 text-left">
+                  <h4 className="font-bold text-accent mb-2">AI-Powered Learning</h4>
+                  <p className="text-[11px]">Dukungan asisten AI 24/7 yang mampu menjawab pertanyaan teknis hingga simulasi quiz adaptif.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === 'terms' && (
+          <div className="space-y-6">
+            <h3 className="text-2xl font-bold flex items-center gap-3 text-left">
+              <FileText className="text-accent" /> Ketentuan Penggunaan
+            </h3>
+            <div className="space-y-4 text-sm text-text-muted leading-relaxed text-left">
+              <div className="p-4 bg-gray-50/50 backdrop-blur-sm rounded-xl">
+                 <p className="font-bold mb-1">1. Penggunaan Akun</p>
+                 <p>Satu akun dyfalogy hanya boleh digunakan oleh satu individu. Berbagi akun dapat menyebabkan penangguhan akses otomatis oleh sistem keamanan kami.</p>
+              </div>
+              <div className="p-4 bg-gray-50/50 backdrop-blur-sm rounded-xl">
+                 <p className="font-bold mb-1">2. Konten & Hak Cipta</p>
+                 <p>Seluruh materi pembelajaran, teks, dan struktur quiz adalah hak kekayaan intelektual dyfalogy atau mitra penyedia konten kami.</p>
+              </div>
+              <div className="p-4 bg-gray-50/50 backdrop-blur-sm rounded-xl">
+                 <p className="font-bold mb-1">3. Kebijakan Komunitas</p>
+                 <p>Interaksi di forum harus mengedepankan etika, kesopanan, dan sportivitas tinggi khas pejuang olimpiade.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === 'privacy' && (
+          <div className="space-y-6 text-left">
+            <h3 className="text-2xl font-bold flex items-center gap-3">
+              <ShieldCheck className="text-accent" /> Jaminan Keamanan Data
+            </h3>
+            <div className="prose prose-sm text-text-muted">
+              <p>Kami sangat serius dalam menjaga keamanan data sobat. Berikut adalah langkah-langkah yang kami terapkan:</p>
+              <ul>
+                <li><strong>Enkripsi End-to-End:</strong> Seluruh komunikasi menggunakan protokol HTTPS dengan enkripsi tinggi.</li>
+                <li><strong>Firebase Infrastructure:</strong> Kami menggunakan infrastruktur Google Cloud & Firebase standar enterprise.</li>
+                <li><strong>No Party Access:</strong> Data personal tidak akan pernah dibagikan ke pihak ketiga mana pun tanpa seizin eksplisit.</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {activeSubTab === 'feedback' && (
+          <div className="space-y-8 text-left">
+            <div className="space-y-2">
+              <h3 className="text-2xl font-bold">Punya Ide atau Menemukan Bug?</h3>
+              <p className="text-sm text-text-muted">Masukkan sobat sangat membantu kami untuk terus berkembang lebih baik.</p>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <textarea 
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                placeholder="Bagikan ide fitur baru, laporan bug, atau sekadar sapaan hangat untuk developer..."
+                className="w-full bg-white/40 border border-white/50 rounded-2xl p-6 text-sm focus:outline-none focus:border-accent min-h-[150px] resize-none"
+              />
+              <button 
+                type="submit" 
+                disabled={isSubmitting || !feedback.trim()}
+                className="w-full py-4 bg-accent text-white rounded-xl font-bold tracking-tight liquid-button disabled:opacity-50"
+              >
+                {isSubmitting ? 'MENGIRIM...' : 'KIRIM FEEDBACK SEKARANG'}
+              </button>
+            </form>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+};
+
 // --- Chat Component ---
 
 const ChatInterface = ({ 
@@ -1029,7 +1393,7 @@ const ChatInterface = ({
               <Sparkles size={20} />
             </div>
             <div>
-              <div className="text-base font-black text-text-main">Asisten dyfalogy AI</div>
+              <div className="text-base font-black text-text-main">Dyfa AI</div>
               <div className="text-[11px] text-emerald-500 font-bold flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                 Online & Siap Menjawab
@@ -1118,6 +1482,18 @@ export default function App() {
   const [quizConfig, setQuizConfig] = useState({ count: 10, timer: 60 });
   const [activeContextMenu, setActiveContextMenu] = useState<string | null>(null);
   
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [searchResults, setSearchResults] = useState<{lessons: Lesson[], strategies: any[]}>({ lessons: [], strategies: [] });
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
+  // History state
+  const [quizHistory, setQuizHistory] = useState<any[]>([]);
+
+  // Audio state
+  const [isTtsPlaying, setIsTtsPlaying] = useState(false);
+  
   // Quiz states
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
   const [isQuizActive, setIsQuizActive] = useState(false);
@@ -1161,6 +1537,28 @@ export default function App() {
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const msgs = snapshot.docs.map(d => d.data());
         setChatMessages(msgs);
+      });
+      return () => unsubscribe();
+    }
+  }, [user]);
+
+  // Quiz History Listener
+  useEffect(() => {
+    if (user) {
+      const historyRef = collection(db, 'users', user.uid, 'quizResults');
+      const q = query(historyRef, orderBy('timestamp', 'desc'), limit(20));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const results = snapshot.docs.map(doc => doc.data());
+        // Unique by lessonId to get latest progress
+        const unique: any[] = [];
+        const seen = new Set();
+        for (const res of results) {
+          if (!seen.has(res.lessonId)) {
+            seen.add(res.lessonId);
+            unique.push(res);
+          }
+        }
+        setQuizHistory(unique.slice(0, 5));
       });
       return () => unsubscribe();
     }
@@ -1288,6 +1686,69 @@ export default function App() {
       .slice(0, 3);
   };
 
+  // Search Logic
+  const handleSearch = (q: string) => {
+    if (!q.trim()) {
+      setSearchResults({ lessons: [], strategies: [] });
+      setShowSearchResults(false);
+      return;
+    }
+    const filteredLessons = LESSONS.filter(l => 
+      l.title.toLowerCase().includes(q.toLowerCase()) || 
+      l.description.toLowerCase().includes(q.toLowerCase()) ||
+      l.category.toLowerCase().includes(q.toLowerCase())
+    );
+    const filteredStrategies = STUDY_STRATEGIES.filter(s => 
+      s.title.toLowerCase().includes(q.toLowerCase()) || 
+      s.description.toLowerCase().includes(q.toLowerCase())
+    );
+    setSearchResults({ lessons: filteredLessons, strategies: filteredStrategies });
+    setShowSearchResults(true);
+  };
+
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Browser kamu tidak mendukung pencarian suara.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'id-ID';
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setSearchQuery(transcript);
+      handleSearch(transcript);
+    };
+    recognition.start();
+  };
+
+  const playTTSContent = async (text: string) => {
+    if (isTtsPlaying) return;
+    setIsTtsPlaying(true);
+    try {
+      const base64 = await generateTTS(text);
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      
+      const audioBuffer = await audioContext.decodeAudioData(bytes.buffer);
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioContext.destination);
+      source.onended = () => setIsTtsPlaying(false);
+      source.start();
+    } catch (error) {
+      console.error("TTS error:", error);
+      setIsTtsPlaying(false);
+    }
+  };
+
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-bg">
       <motion.div 
@@ -1315,6 +1776,13 @@ export default function App() {
         setActiveTab={setActiveTab} 
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)} 
+        quizHistory={quizHistory}
+        onSelectLesson={setSelectedLesson}
+        onSearch={handleSearch}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        startListening={startListening}
+        isListening={isListening}
       />
       
       <div className="flex-1 flex flex-col min-w-0 border-r border-border relative z-10">
@@ -1325,9 +1793,93 @@ export default function App() {
           onToggleAi={() => setShowAiPanel(!showAiPanel)} 
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           onProfileClick={() => setActiveTab('profile')}
+          onSearch={handleSearch}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          isListening={isListening}
+          startListening={startListening}
         />
         
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-6 relative">
+          <AnimatePresence>
+            {showSearchResults && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="absolute inset-0 z-[60] bg-bg/95 backdrop-blur-xl p-6 overflow-y-auto"
+              >
+                <div className="max-w-4xl mx-auto space-y-8">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-black">Hasil Pencarian untuk "{searchQuery}"</h2>
+                    <button onClick={() => { setShowSearchResults(false); setSearchQuery(''); }} className="p-2 hover:bg-black/5 rounded-full"><X size={24}/></button>
+                  </div>
+
+                  {searchResults.lessons.length > 0 && (
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-bold text-accent uppercase tracking-widest px-2">Materi ({searchResults.lessons.length})</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {searchResults.lessons.map(lesson => (
+                          <div key={lesson.id} className="glass-card p-5 rounded-2xl flex justify-between items-center group">
+                            <div>
+                              <div className="text-[10px] font-bold text-accent uppercase">{lesson.category}</div>
+                              <div className="text-lg font-black">{lesson.title}</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                onClick={() => playTTSContent(`${lesson.title}. ${lesson.description}`)}
+                                disabled={isTtsPlaying}
+                                className="p-2.5 text-accent hover:bg-accent/10 rounded-xl transition-all disabled:opacity-30"
+                              >
+                                {isTtsPlaying ? <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" /> : <Volume2 size={18} />}
+                              </button>
+                              <button 
+                                onClick={() => { setSelectedLesson(lesson); setActiveTab('lessons'); setShowSearchResults(false); }}
+                                className="bg-accent text-white p-2.5 rounded-xl transition-all"
+                              >
+                                <ChevronRight size={18} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {searchResults.strategies.length > 0 && (
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-bold text-accent uppercase tracking-widest px-2">Strategi ({searchResults.strategies.length})</h3>
+                      <div className="grid grid-cols-1 gap-4">
+                        {searchResults.strategies.map((strategy, i) => (
+                          <div key={i} className="glass-card p-5 rounded-2xl flex justify-between items-center">
+                            <div>
+                                <div className="text-lg font-black">{strategy.title}</div>
+                                <div className="text-sm text-text-muted">{strategy.description}</div>
+                            </div>
+                            <button 
+                              onClick={() => { setActiveTab('strategies'); setShowSearchResults(false); }}
+                              className="text-accent hover:bg-accent/10 p-2.5 rounded-xl transition-all"
+                            >
+                              <ChevronRight size={18} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {searchResults.lessons.length === 0 && searchResults.strategies.length === 0 && (
+                    <div className="text-center py-20 bg-white/20 rounded-3xl border border-white/50 border-dashed">
+                      <div className="text-4xl mb-4">🔍</div>
+                      <div className="text-lg font-bold text-text-muted">Tidak ada hasil ditemukan.</div>
+                      <p className="text-sm text-text-muted">Coba gunakan kata kunci lain atau tanya AI!</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <AnimatePresence mode="wait">
             {viewingProfileId && (
               <motion.div
@@ -1661,39 +2213,74 @@ export default function App() {
               </motion.div>
             )}
 
+            {activeTab === 'osn-archive' && (
+              <motion.div 
+                key="osn-archive"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <OsnArchive />
+              </motion.div>
+            )}
+
+            {activeTab === 'customer-service' && (
+              <motion.div 
+                key="customer-service"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                <CustomerService user={userData} />
+              </motion.div>
+            )}
+
             {activeTab === 'strategies' && (
               <motion.div 
                 key="strategies"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="space-y-5"
+                className="space-y-6 max-w-4xl mx-auto"
               >
-                <div className="text-base font-bold">Strategi Belajar Efektif</div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-3xl font-black tracking-tight mb-8">Strategi Belajar Efektif</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {STUDY_STRATEGIES.map((strategy, idx) => (
-                    <div key={idx} className="glass-card p-6 rounded-2xl space-y-3">
-                      <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center text-accent">
-                        <Zap size={20} />
+                    <div key={idx} className="glass-card p-8 rounded-[32px] space-y-4 group relative overflow-hidden active:scale-[0.98] transition-all">
+                      <div className="absolute top-4 right-4 z-10">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); playTTSContent(`${strategy.title}. ${strategy.description}`); }}
+                          disabled={isTtsPlaying}
+                          className="p-3 bg-accent text-white rounded-2xl shadow-lg shadow-accent/20 opacity-0 group-hover:opacity-100 transition-all hover:scale-110 disabled:opacity-50"
+                        >
+                          <Volume2 size={20} />
+                        </button>
                       </div>
-                      <h4 className="text-sm font-bold text-text-main">{strategy.title}</h4>
-                      <p className="text-xs text-text-muted leading-relaxed">{strategy.description}</p>
+                      <div className="w-12 h-12 bg-accent/10 rounded-2xl flex items-center justify-center text-accent">
+                        <Zap size={24} />
+                      </div>
+                      <h4 className="text-xl font-black text-text-main leading-tight">{strategy.title}</h4>
+                      <p className="text-sm text-text-muted leading-relaxed italic">"{strategy.description}"</p>
                     </div>
                   ))}
                 </div>
                 
-                <div className="bg-sidebar/90 backdrop-blur-xl rounded-3xl p-10 text-white relative overflow-hidden shadow-2xl">
-                  <div className="relative z-10 space-y-4 max-w-lg">
-                    <h3 className="text-2xl font-black tracking-tight">Butuh Rencana Belajar Kustom?</h3>
-                    <p className="text-sm text-white/70 leading-relaxed">Tanyakan pada BioMaster AI untuk membuatkan jadwal belajar yang sesuai dengan target OSP kamu.</p>
+                <div className="bg-sidebar/90 backdrop-blur-xl rounded-[40px] p-12 text-white relative overflow-hidden shadow-2xl mt-12 border border-white/10 group">
+                  <div className="relative z-10 space-y-6 max-w-xl">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent/20 border border-accent/30 rounded-full text-[10px] font-black uppercase tracking-widest text-accent">
+                      <Sparkles size={12}/> AI Study Planner
+                    </div>
+                    <h3 className="text-4xl font-black tracking-tight leading-none group-hover:text-accent transition-colors">Butuh Rencana Belajar Kustom?</h3>
+                    <p className="text-base text-white/70 leading-relaxed">Tanyakan pada BioMaster AI untuk membuatkan jadwal belajar yang sesuai dengan target medali emas OSP kamu.</p>
                     <button 
                       onClick={() => setActiveTab('chat')}
-                      className="bg-accent text-white px-6 py-3 rounded-xl text-sm font-bold hover:bg-[#1A4331] transition-all liquid-button shadow-lg shadow-accent/20"
+                      className="bg-accent text-white px-10 py-4 rounded-2xl text-base font-black hover:bg-[#1A4331] transition-all liquid-button shadow-2xl shadow-accent/30 flex items-center gap-3 w-fit"
                     >
-                      Mulai Chat Sekarang
+                      Buka Konsultasi AI
+                      <ChevronRight size={20} />
                     </button>
                   </div>
-                  <Sparkles className="absolute right-[-20px] bottom-[-20px] w-64 h-64 text-white/5 rotate-12" />
+                  <Brain className="absolute right-[-40px] bottom-[-40px] w-80 h-80 text-white/5 rotate-12 transition-transform group-hover:scale-110 duration-700" />
                 </div>
               </motion.div>
             )}
@@ -1721,7 +2308,7 @@ export default function App() {
       )}>
         <div className="p-5 border-b border-border flex justify-between items-center bg-white/10 shrink-0">
           <div>
-            <div className="text-sm font-black text-text-main">Asisten dyfalogy AI</div>
+            <div className="text-sm font-black text-text-main">Dyfa AI</div>
             <div className="text-[11px] text-emerald-500 font-bold flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
               Online & Siap Menjawab
