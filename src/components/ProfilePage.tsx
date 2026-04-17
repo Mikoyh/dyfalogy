@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, 
@@ -36,7 +36,7 @@ const BORDERS = [
   { id: 'diamond', name: 'Diamond Biologist', color: '#B9F2FF', minLevel: 50 },
 ];
 
-export const ProfilePage = ({ userId, isOwnProfile, onClose }: ProfilePageProps) => {
+export const ProfilePage = memo(({ userId, isOwnProfile, onClose }: ProfilePageProps) => {
   const [profileData, setProfileData] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
@@ -109,11 +109,12 @@ export const ProfilePage = ({ userId, isOwnProfile, onClose }: ProfilePageProps)
                 }}
               >
                 <img 
-                  src={profileData.photoURL || 'https://picsum.photos/seed/user/200/200'} 
-                  className="w-full h-full rounded-full object-cover border-4 border-white shadow-inner"
-                  alt={profileData.displayName}
-                  referrerPolicy="no-referrer"
-                />
+  loading="lazy" 
+  src={profileData.photoURL || 'https://picsum.photos/seed/user/200/200'} 
+  className="w-full h-full rounded-full object-cover border-4 border-white shadow-inner"
+  alt={profileData.displayName}
+  referrerPolicy="no-referrer"
+/>
               </div>
               {isOwnProfile && (
                 <button 
@@ -371,4 +372,4 @@ export const ProfilePage = ({ userId, isOwnProfile, onClose }: ProfilePageProps)
       </AnimatePresence>
     </div>
   );
-};
+});

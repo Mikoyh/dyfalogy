@@ -49,6 +49,8 @@
     box-shadow: 
       inset 0 1px 1px rgba(255,255,255,0.4),
       0 10px 40px rgba(0,0,0,0.03);
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 500px;
   }
 
   .glass-sidebar {

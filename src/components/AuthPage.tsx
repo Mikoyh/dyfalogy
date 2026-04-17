@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Mail, 
@@ -34,7 +34,7 @@ interface AuthPageProps {
 
 type AuthMethod = 'email' | 'phone';
 
-export const AuthPage = ({ onBack }: AuthPageProps) => {
+export const AuthPage = memo(({ onBack }: AuthPageProps) => {
   const [isLogin, setIsLogin] = useState(true);
   const [authMethod, setAuthMethod] = useState<AuthMethod>('email');
   
@@ -379,7 +379,7 @@ export const AuthPage = ({ onBack }: AuthPageProps) => {
       </motion.div>
     </div>
   );
-};
+});
 
 declare global {
   interface Window {
