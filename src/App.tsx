@@ -1385,16 +1385,19 @@ const ChatInterface = ({
   }, [messages]);
 
   return (
-    <div className={cn("flex flex-col h-full", isSidebar ? "" : "max-w-4xl mx-auto w-full glass-card rounded-3xl overflow-hidden shadow-2xl")}>
+    <div className={cn(
+      "flex flex-col h-full w-full", 
+      isSidebar ? "" : "max-w-4xl mx-auto glass-card rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl"
+    )}>
       {!isSidebar && (
-        <div className="p-6 border-b border-border bg-white/10 flex items-center justify-between">
+        <div className="p-4 md:p-6 border-b border-border bg-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shadow-accent/20">
-              <Sparkles size={20} />
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shadow-accent/20">
+              <Sparkles size={16} className="md:w-5 md:h-5" />
             </div>
             <div>
-              <div className="text-base font-black text-text-main">Dyfa AI</div>
-              <div className="text-[11px] text-emerald-500 font-bold flex items-center gap-1.5">
+              <div className="text-sm md:text-base font-black text-text-main">Dyfa AI</div>
+              <div className="text-[9px] md:text-[11px] text-emerald-500 font-bold flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                 Online & Siap Menjawab
               </div>
@@ -1403,7 +1406,7 @@ const ChatInterface = ({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0">
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-30">
             <Brain size={48} className="text-accent" />
@@ -1422,7 +1425,10 @@ const ChatInterface = ({
               "p-4 rounded-2xl text-sm leading-relaxed shadow-sm max-w-[85%]",
               msg.role === 'user' 
                 ? "bg-white/60 text-text-main ml-auto border border-white/60 backdrop-blur-md" 
-                : "bg-accent/10 text-text-main border-l-4 border-accent mr-auto backdrop-blur-md"
+                : cn(
+                  "bg-accent/10 text-text-main border-l-4 border-accent mr-auto backdrop-blur-md",
+                  msg.isError && "bg-red-50 border-red-500 text-red-700"
+                )
             )}
           >
             <div className="prose prose-sm prose-emerald max-w-none">
@@ -1442,21 +1448,21 @@ const ChatInterface = ({
         <div ref={chatEndRef} />
       </div>
 
-      <form onSubmit={onSend} className="p-4 bg-white/20 border-t border-border">
+      <form onSubmit={onSend} className="p-3 md:p-4 bg-white/20 border-t border-border shrink-0">
         <div className="relative flex gap-2">
           <input 
             type="text" 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Tulis pesan kamu di sini..."
-            className="flex-1 bg-white/50 border border-border rounded-2xl px-5 py-3 text-sm focus:outline-none focus:border-accent transition-all shadow-inner"
+            className="flex-1 bg-white/50 border border-border rounded-xl md:rounded-2xl px-4 md:px-5 py-2.5 md:py-3 text-sm focus:outline-none focus:border-accent transition-all shadow-inner"
           />
           <button 
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="bg-accent text-white p-3 rounded-2xl hover:bg-[#1A4331] transition-all disabled:opacity-30 shadow-lg shadow-accent/20"
+            className="bg-accent text-white p-2.5 md:p-3 rounded-xl md:rounded-2xl hover:bg-[#1A4331] transition-all disabled:opacity-30 shadow-lg shadow-accent/20"
           >
-            <Send size={20} />
+            <Send size={18} className="md:w-5 md:h-5" />
           </button>
         </div>
       </form>
@@ -1598,8 +1604,17 @@ export default function App() {
         content: aiResponse,
         timestamp: serverTimestamp()
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Chat error:", error);
+      // Add error message to chat
+      const chatRef = collection(db, 'users', user.uid, 'chatHistory');
+      await addDoc(chatRef, {
+        userId: user.uid,
+        role: 'model',
+        content: "Maaf, terjadi kesalahan saat menghubungi Dyfa AI. Mohon pastikan koneksi internet sobat stabil atau coba beberapa saat lagi.",
+        timestamp: serverTimestamp(),
+        isError: true
+      });
     } finally {
       setIsAiLoading(false);
     }
@@ -2286,14 +2301,16 @@ export default function App() {
             )}
             
             {activeTab === 'chat' && (
-              <div className="h-[calc(100vh-120px)]">
-                <ChatInterface 
-                  messages={chatMessages}
-                  input={inputMessage}
-                  setInput={setInputMessage}
-                  onSend={handleSendMessage}
-                  isLoading={isAiLoading}
-                />
+              <div className="fixed inset-0 lg:static flex flex-col pt-16 lg:pt-0 pb-0 lg:h-[calc(100vh-120px)] bg-bg lg:bg-transparent z-40">
+                <div className="flex-1 min-h-0 p-4 lg:p-0">
+                  <ChatInterface 
+                    messages={chatMessages}
+                    input={inputMessage}
+                    setInput={setInputMessage}
+                    onSend={handleSendMessage}
+                    isLoading={isAiLoading}
+                  />
+                </div>
               </div>
             )}
           </AnimatePresence>

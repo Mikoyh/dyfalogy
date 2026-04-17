@@ -5,12 +5,11 @@ let genAI: GoogleGenAI | null = null;
 
 const getAI = () => {
   if (!genAI) {
-    // Rely on Vite's define for process.env.GEMINI_API_KEY
-    // @ts-ignore
-    const apiKey = typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : import.meta.env.VITE_GEMINI_API_KEY;
+    // Rely on process.env.GEMINI_API_KEY which is injected by the platform
+    const apiKey = process.env.GEMINI_API_KEY;
     
-    if (!apiKey || apiKey === 'undefined' || apiKey === 'null') {
-      console.warn("GEMINI_API_KEY is missing. AI features will not work.");
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not defined in the environment.");
       return null;
     }
     genAI = new GoogleGenAI({ apiKey });
@@ -22,7 +21,6 @@ export const getGeminiResponse = async (prompt: string, history: any[] = []) => 
   const ai = getAI();
   if (!ai) throw new Error("AI client not initialized. Please check your API key.");
   
-  // Combine history and current prompt into contents for generateContent
   const contents = [
     ...history.map(h => ({
       role: h.role === 'user' ? 'user' : 'model',
@@ -32,10 +30,10 @@ export const getGeminiResponse = async (prompt: string, history: any[] = []) => 
   ];
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-latest",
     contents,
     config: {
-      systemInstruction: "You are dyfalogy AI, an expert Biology tutor specializing in OSP (Olimpiade Sains Provinsi) Biologi. You help students understand complex biological concepts, provide study strategies, and solve practice problems. Keep your tone encouraging, professional, and clear. Use Indonesian as the primary language, but use scientific terms correctly.",
+      systemInstruction: "You are Dyfa AI, an expert Biology tutor specializing in OSP (Olimpiade Sains Provinsi) Biologi. You help students understand complex biological concepts, provide study strategies, and solve practice problems. Keep your tone encouraging, professional, and clear. Use Indonesian as the primary language, but use scientific terms correctly.",
     }
   });
 
@@ -93,7 +91,7 @@ export const generateQuiz = async (topicTitle: string, topicContent: string, cou
     ]`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-flash-latest",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
