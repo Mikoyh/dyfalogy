@@ -124,12 +124,24 @@ export const useGamification = (user: any) => {
     await addXp(10);
   }, [user, addXp]);
 
+  const upgradeToPro = useCallback(async () => {
+    if (!user) return;
+    await updateDoc(doc(db, 'users', user.uid), {
+      isPro: true,
+      proSince: serverTimestamp(),
+      badges: arrayUnion('pro-member')
+    });
+    // Add Pro badge to local state if needed, but onSnapshot handles it
+  }, [user]);
+
   return {
     userData,
     loading,
+    isPro: userData?.isPro || false,
     addXp,
     updateTopicMastery,
     createFlashcard,
-    reviewFlashcard
+    reviewFlashcard,
+    upgradeToPro
   };
 };

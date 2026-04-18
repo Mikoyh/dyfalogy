@@ -274,6 +274,87 @@ Sistem peredaran darah tertutup pada vertebrata melibatkan jantung sebagai pompa
     xpReward: 150
   },
   {
+    id: 'biosystematics-1',
+    title: 'Biosistematika & Filogeni',
+    category: 'Biosistematika',
+    difficulty: 'hard',
+    level: 5,
+    description: 'Mempelajari klasifikasi makhluk hidup menggunakan pendekatan Kladogram.',
+    content: `
+### 1. Dasar-Dasar Klasifikasi
+Sistematika adalah ilmu yang mempelajari keanekaragaman makhluk hidup serta hubungan kekerabatan antar organisme.
+- **Taksonomi**: Penamaan (Nomenklatur) dan klasifikasi.
+- **Filogeni**: Sejarah evolusi suatu spesies atau kelompok spesies.
+
+### 2. Kladistika (Analisis Kladogram)
+Metode klasifikasi yang mengelompokkan organisme berdasarkan **Karakter Turunan Bersama** (*Shared Derived Characters*).
+- **Klad**: Kelompok yang mencakup satu nenek moyang dan semua keturunannya (Monofiletik).
+- **Parafiletik**: Mencakup nenek moyang tetapi tidak semua keturunan.
+- **Polifiletik**: Mencakup organisme yang tidak memiliki nenek moyang bersama yang paling baru.
+
+### 3. Pohon Filogenetik
+Interpretasi hubungan kekerabatan menggunakan data morfologi dan molekuler (DNA). Organisme yang memiliki urutan DNA lebih mirip dianggap memiliki hubungan kekerabatan lebih dekat.
+
+> **Challenge OSN**: Diberikan tabel karakter (misal: ada/tidaknya rahang, paru-paru, rambut), susunlah kladogram yang paling parsimonius (paling sederhana).
+    `,
+    xpReward: 500,
+    topicId: 'biosystematics'
+  },
+  {
+    id: 'ecology-foundation-1',
+    title: 'Prinsip Dasar Ekologi',
+    category: 'Ekologi',
+    difficulty: 'easy',
+    level: 1,
+    description: 'Mempelajari interaksi makhluk hidup dengan lingkungannya, dari tingkat individu hingga biosfer.',
+    content: `
+### 1. Tingkatan Organisasi Biologis
+Ekologi mempelajari hubungan timbal balik di berbagai tingkatan:
+- **Individu**: Satu makhluk hidup tunggal.
+- **Populasi**: Sekelompok individu sejenis di tempat yang sama.
+- **Komunitas**: Kumpulan berbagai populasi yang berinteraksi.
+- **Ekosistem**: Interaksi antara komunitas dengan faktor abiotik (air, tanah, cahaya).
+- **Biosfer**: Seluruh lapisan bumi yang dihuni makhluk hidup.
+
+### 2. Rantai dan Jaring Makanan
+Energi mengalir dari **Produsen** (tumbuhan) ke **Konsumen** (hewan) dan akhirnya ke **Pengurai** (fungi/bakteri).
+- **Hukum 10%**: Hanya sekitar 10% energi yang diteruskan ke trofik berikutnya.
+
+### 3. Suksesi
+Proses perubahan komposisi spesies dalam komunitas seiring waktu.
+- **Suksesi Primer**: Dimulai dari lahan kosong tanpa tanah (misal: setelah letusan gunung).
+- **Suksesi Sekunder**: Terjadi setelah gangguan (misal: kebakaran hutan) di lahan yang sudah memiliki tanah.
+    `,
+    xpReward: 300
+  },
+  {
+    id: 'animal-phys-foundation-1',
+    title: 'Jaringan Dasar Hewan',
+    category: 'Anatomi & Fisiologi Hewan',
+    difficulty: 'easy',
+    level: 1,
+    description: 'Mengenal empat tipe jaringan utama yang menyusun tubuh hewan.',
+    content: `
+### 1. Jaringan Epitel
+Melapisi permukaan tubuh dan organ. Berfungsi sebagai proteksi, absorpsi, dan sekresi.
+- Contoh: Epitel pipih selapis di paru-paru.
+
+### 2. Jaringan Ikat
+Menghubungkan dan menyokong jaringan lain. Terdiri dari matriks dan sel.
+- Contoh: Darah, tulang, kartilago, dan lemak (adiposa).
+
+### 3. Jaringan Otot
+Berfungsi untuk pergerakan.
+- **Otot Polos**: Involunter (tidak sadar), di organ dalam.
+- **Otot Lurik**: Volunter (sadar), melekat pada rangka.
+- **Otot Jantung**: Involunter, hanya di jantung.
+
+### 4. Jaringan Saraf
+Menerima dan menghantarkan impuls listrik. Terdiri dari neuron dan sel glia.
+    `,
+    xpReward: 300
+  },
+  {
     id: 'genetik-1',
     title: 'Pewarisan Sifat Mendel',
     category: 'Biogenetika & Evolusi',

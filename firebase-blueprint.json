@@ -93,12 +93,48 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "lessonId", "score"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A chat session between AI or users.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["ai", "p2p"] },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "title": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "participants"]
+    },
+    "DirectMessage": {
+      "title": "Direct Message",
+      "description": "An individual message within a conversation.",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "content": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "participants": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["content", "participants"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "User profile and progress"
+    },
+    "/conversations/{convId}": {
+      "schema": "Conversation",
+      "description": "Main chat conversation document"
+    },
+    "/conversations/{convId}/messages/{msgId}": {
+      "schema": "DirectMessage",
+      "description": "Individual messages in a conversation"
     },
     "/users/{userId}/chatHistory/{messageId}": {
       "schema": "ChatMessage",

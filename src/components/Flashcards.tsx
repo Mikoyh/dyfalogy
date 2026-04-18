@@ -1,6 +1,6 @@
 import React, { useState, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCw, CheckCircle2, XCircle, Brain, Calendar, ArrowRight, Share2, Info } from 'lucide-react';
+import { RefreshCw, CheckCircle2, XCircle, Brain, Calendar, ArrowRight, Share2, Info, Zap, Trophy } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export interface Flashcard {
@@ -42,22 +42,53 @@ export const Flashcards: React.FC<FlashcardsProps> = memo(({
     }, 200);
   };
 
-  if (isFinished || cards.length === 0) {
+  if (cards.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[500px] p-8 text-center bg-white rounded-3xl shadow-2xl border border-border">
-        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 mb-6 animate-bounce">
-          <Trophy size={40} />
+      <div className="flex flex-col items-center justify-center min-h-[500px] p-8 text-center bg-white rounded-[40px] shadow-2xl border border-border overflow-hidden relative group">
+        <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent -z-0" />
+        <div className="relative z-10">
+          <div className="w-24 h-24 bg-accent/10 rounded-[32px] flex items-center justify-center text-accent mb-8 mx-auto rotate-3 group-hover:rotate-6 transition-transform">
+            <Brain size={48} className="animate-pulse" />
+          </div>
+          <h2 className="text-3xl font-black text-text-main mb-4 leading-tight">Belum Ada Kartu Review! 🧬</h2>
+          <p className="text-text-muted mb-10 max-w-sm mx-auto text-base leading-relaxed">
+            Sistem Spaced Repetition (Anki) kamu masih kosong. Kamu perlu menyelesaikan materi pembelajaran untuk secara otomatis menambahkan poin penting ke dalam sistem review ini.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button 
+              onClick={onClose}
+              className="px-8 py-4 bg-accent text-white rounded-2xl font-black shadow-xl shadow-accent/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+            >
+              <Zap size={18} /> Mulai Belajar Sekarang
+            </button>
+          </div>
+          <p className="mt-8 text-[11px] font-bold text-text-muted uppercase tracking-widest opacity-40">
+            Tip: Selesaikan kuis di setiap materi untuk hasil maksimal
+          </p>
         </div>
-        <h2 className="text-3xl font-black text-text-main mb-2">Review Selesai! 🧠</h2>
-        <p className="text-text-muted mb-8 max-w-sm">
-          Luar biasa! Kamu sudah menyelesaikan semua kartu review hari ini. Konsistensi adalah kunci medali emas.
-        </p>
-        <button 
-          onClick={onClose}
-          className="px-8 py-3 bg-accent text-white rounded-2xl font-black shadow-xl shadow-accent/20 hover:scale-105 active:scale-95 transition-all"
-        >
-          Kembali ke Dashboard
-        </button>
+      </div>
+    );
+  }
+
+  if (isFinished) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[500px] p-8 text-center bg-white rounded-[40px] shadow-2xl border border-border overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent -z-0" />
+        <div className="relative z-10">
+          <div className="w-24 h-24 bg-emerald-100 rounded-[32px] flex items-center justify-center text-emerald-600 mb-8 mx-auto shadow-lg">
+            <Trophy size={48} />
+          </div>
+          <h2 className="text-3xl font-black text-text-main mb-4">Review Selesai Habis! 🏆</h2>
+          <p className="text-text-muted mb-10 max-w-sm mx-auto text-base leading-relaxed">
+            Luar biasa! Kamu sudah menyelesaikan semua target review hari ini. Otak kamu sekarang lebih sinkron dengan materi OSP.
+          </p>
+          <button 
+            onClick={onClose}
+            className="px-10 py-4 bg-emerald-500 text-white rounded-2xl font-black shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all"
+          >
+            Selesai untuk Hari Ini
+          </button>
+        </div>
       </div>
     );
   }
@@ -166,11 +197,5 @@ export const Flashcards: React.FC<FlashcardsProps> = memo(({
     </div>
   );
 });
-
-const Trophy = ({ size }: { size: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-  </svg>
-);
 
 Flashcards.displayName = 'Flashcards';

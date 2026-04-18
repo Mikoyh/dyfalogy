@@ -2,13 +2,15 @@ export interface Topic {
   id: string;
   title: string;
   description: string;
-  level: 1 | 2 | 3; // Foundation, Analysis, Olympic Grade
+  level: 1 | 2 | 3 | 4; // Foundation, Analysis, Olympic Grade, Elite
   prerequisites: string[];
   minMasteryToUnlockNext: number; // e.g., 80
   xpReward: number;
+  isProOnly?: boolean;
 }
 
 export const BIOLOGY_CURRICULUM: Topic[] = [
+  // ... basic nodes ...
   {
     id: 'cell-structure',
     title: 'Struktur & Organel Sel',
@@ -62,6 +64,37 @@ export const BIOLOGY_CURRICULUM: Topic[] = [
     prerequisites: ['population-genetics'],
     minMasteryToUnlockNext: 90,
     xpReward: 2000
+  },
+  // --- PRO ONLY NODES ---
+  {
+    id: 'advanced-photosynthesis',
+    title: 'Photosynthesis Deep Dive (Pro)',
+    description: 'Analisis C3, C4, CAM, dan efisiensi kuantum fotofosforilasi.',
+    level: 4,
+    prerequisites: ['metabolism'],
+    minMasteryToUnlockNext: 90,
+    xpReward: 3000,
+    isProOnly: true
+  },
+  {
+    id: 'quantitative-genetics',
+    title: 'Quantitative Genetics (Pro)',
+    description: 'Heritabilitas, ANOVA dalam genetika, dan pemetaan QTL.',
+    level: 4,
+    prerequisites: ['population-genetics'],
+    minMasteryToUnlockNext: 90,
+    xpReward: 3500,
+    isProOnly: true
+  },
+  {
+    id: 'neurobiology',
+    title: 'Neurobiology & Signaling (Pro)',
+    description: 'Potensial aksi, transmisi sinaptik, dan sistem sensorik kompleks.',
+    level: 4,
+    prerequisites: ['molecular-genetics'],
+    minMasteryToUnlockNext: 90,
+    xpReward: 4000,
+    isProOnly: true
   }
 ];
 

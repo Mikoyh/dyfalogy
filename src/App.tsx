@@ -58,9 +58,12 @@ const AuthPage = React.lazy(() => import('./components/AuthPage').then(module =>
 const Forum = React.lazy(() => import('./components/Forum').then(module => ({ default: module.Forum })));
 const OsnArchive = React.lazy(() => import('./components/OsnArchive').then(module => ({ default: module.OsnArchive })));
 const CustomerService = React.lazy(() => import('./components/CustomerService').then(module => ({ default: module.CustomerService })));
+const ChatSidebar = React.lazy(() => import('./components/ChatSidebar').then(module => ({ default: module.ChatSidebar })));
 const LearningPath = React.lazy(() => import('./components/LearningPath').then(module => ({ default: module.LearningPath })));
+import { Conversation } from './components/ChatSidebar';
 const Flashcards = React.lazy(() => import('./components/Flashcards').then(module => ({ default: module.Flashcards })));
 const Analytics = React.lazy(() => import('./components/Analytics').then(module => ({ default: module.Analytics })));
+const ProPage = React.lazy(() => import('./components/ProPage').then(module => ({ default: module.ProPage })));
 
 const ConfirmationModal = ({ 
   isOpen, 
@@ -149,10 +152,12 @@ const ReactionButton = ({ count, icon, active, onClick }: { count: number, icon:
 
 export default function App() {
   const [user, loading] = useAuthState(auth);
-  const { userData, addXp, updateTopicMastery, reviewFlashcard } = useGamification(user);
+  const { userData, addXp, updateTopicMastery, reviewFlashcard, isPro, upgradeToPro } = useGamification(user);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [inputMessage, setInputMessage] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
@@ -162,8 +167,6 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [quizConfig, setQuizConfig] = useState({ count: 10, timer: 60 });
   const [activeContextMenu, setActiveContextMenu] = useState<string | null>(null);
-  
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -215,18 +218,58 @@ export default function App() {
     }
   }, [user]);
 
-  // Chat History Listener
+  // Conversations Listener
   useEffect(() => {
-    if (user) {
-      const chatRef = collection(db, 'users', user.uid, 'chatHistory');
-      const q = query(chatRef, orderBy('timestamp', 'asc'), limit(50));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const msgs = snapshot.docs.map(d => d.data());
-        setChatMessages(msgs);
-      });
-      return () => unsubscribe();
+    if (!user) return;
+    const q = query(
+      collection(db, 'conversations'),
+      where('participants', 'array-contains', user.uid),
+      orderBy('updatedAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const convs = await Promise.all(snapshot.docs.map(async (d) => {
+        const data = d.data() as Conversation;
+        data.id = d.id;
+        
+        if (data.type === 'p2p') {
+          const otherId = data.participants.find(p => p !== user.uid);
+          if (otherId) {
+            const userSnap = await getDoc(doc(db, 'users', otherId));
+            if (userSnap.exists()) {
+              data.otherUser = userSnap.data() as any;
+            }
+          }
+        }
+        return data;
+      }));
+      setConversations(convs);
+      
+      // Select first chat if none selected and on chat tab
+      if (activeTab === 'chat' && !activeChatId && convs.length > 0) {
+        setActiveChatId(convs[0].id);
+      }
+    });
+    return () => unsubscribe();
+  }, [user, activeTab]);
+
+  // Active Chat Message Listener
+  useEffect(() => {
+    if (!user || !activeChatId) {
+      setChatMessages([]);
+      return;
     }
-  }, [user]);
+    const q = query(
+      collection(db, 'conversations', activeChatId, 'messages'),
+      where('participants', 'array-contains', user.uid),
+      orderBy('timestamp', 'asc'),
+      limit(100)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setChatMessages(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsubscribe();
+  }, [user, activeChatId]);
 
   // Quiz History Listener
   useEffect(() => {
@@ -266,6 +309,22 @@ export default function App() {
     if (e) e.preventDefault();
     if ((!inputMessage.trim() && !selectedImage) || !user) return;
 
+    let currentChatId = activeChatId;
+
+    // Create new AI chat if none active and user sends message
+    if (!currentChatId) {
+      const convRef = await addDoc(collection(db, 'conversations'), {
+        type: 'ai',
+        participants: [user.uid],
+        title: inputMessage.slice(0, 30) || 'Diskusi Biologi',
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        lastMessage: inputMessage
+      });
+      currentChatId = convRef.id;
+      setActiveChatId(convRef.id);
+    }
+
     const userMsg = inputMessage;
     const userImg = selectedImage;
     setInputMessage('');
@@ -273,42 +332,96 @@ export default function App() {
     setIsAiLoading(true);
 
     try {
-      const chatRef = collection(db, 'users', user.uid, 'chatHistory');
-      await addDoc(chatRef, {
-        userId: user.uid,
+      const activeConv = conversations.find(c => c.id === currentChatId);
+      const msgRef = collection(db, 'conversations', currentChatId!, 'messages');
+      const participants = activeConv?.participants || [user.uid];
+      
+      await addDoc(msgRef, {
+        senderId: user.uid,
         role: 'user',
         content: userMsg,
         imageUrl: userImg,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
+        participants // Denormalized for security rules
       });
 
-      const history = chatMessages.map(m => ({
-        role: m.role,
-        parts: [{ text: m.content }]
-      }));
-
-      const aiResponse = await getGeminiResponse(userMsg || "Tolong jelaskan gambar ini", history, userImg || undefined);
-
-      await addDoc(chatRef, {
-        userId: user.uid,
-        role: 'model',
-        content: aiResponse,
-        timestamp: serverTimestamp()
+      // Update last message in conversation
+      await updateDoc(doc(db, 'conversations', currentChatId!), {
+        lastMessage: userMsg,
+        updatedAt: serverTimestamp()
       });
+
+      if (!activeConv || activeConv.type === 'ai') {
+        const history = chatMessages.map(m => ({
+          role: m.role || 'user',
+          parts: [{ text: m.content }]
+        }));
+
+        const aiResponse = await getGeminiResponse(userMsg || "Tolong jelaskan gambar ini", history, userImg || undefined, isPro);
+
+        await addDoc(msgRef, {
+          role: 'model',
+          content: aiResponse,
+          timestamp: serverTimestamp(),
+          participants
+        });
+
+        await updateDoc(doc(db, 'conversations', currentChatId!), {
+          lastMessage: aiResponse,
+          updatedAt: serverTimestamp()
+        });
+      }
     } catch (error: any) {
       console.error("Chat error:", error);
-      const chatRef = collection(db, 'users', user.uid, 'chatHistory');
-      await addDoc(chatRef, {
-        userId: user.uid,
-        role: 'model',
-        content: "Maaf, terjadi kesalahan saat menghubungi Dyfa AI. Mohon pastikan koneksi internet sobat stabil atau coba beberapa saat lagi.",
-        timestamp: serverTimestamp(),
-        isError: true
-      });
     } finally {
       setIsAiLoading(false);
     }
-  }, [inputMessage, selectedImage, user, chatMessages]);
+  }, [user, inputMessage, selectedImage, activeChatId, chatMessages, conversations]);
+
+  const createNewAiChat = async () => {
+    if (!user) return;
+    try {
+      const convRef = await addDoc(collection(db, 'conversations'), {
+        type: 'ai',
+        participants: [user.uid],
+        title: 'Percakapan Baru',
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        lastMessage: 'Halo! Ada yang bisa Dyfa bantu?'
+      });
+      setActiveChatId(convRef.id);
+      setActiveTab('chat');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const startPrivateChat = async (otherUserId: string) => {
+    if (!user) return;
+    try {
+      // Check if existing
+      const existing = conversations.find(c => 
+        c.type === 'p2p' && c.participants.includes(otherUserId)
+      );
+      if (existing) {
+        setActiveChatId(existing.id);
+        setActiveTab('chat');
+        return;
+      }
+
+      const convRef = await addDoc(collection(db, 'conversations'), {
+        type: 'p2p',
+        participants: [user.uid, otherUserId],
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        lastMessage: 'Baru saja ditambahkan'
+      });
+      setActiveChatId(convRef.id);
+      setActiveTab('chat');
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -340,7 +453,8 @@ export default function App() {
         lesson.content, 
         quizConfig.count, 
         false, 
-        weakTopics
+        weakTopics,
+        isPro
       );
       setQuizQuestions(questions);
       setIsQuizActive(true);
@@ -490,7 +604,10 @@ export default function App() {
       <div className="atmosphere" />      <Suspense fallback={<div className="h-full w-[280px] bg-sidebar animate-pulse shrink-0" />}>
         <Sidebar 
           activeTab={activeTab} 
-          setActiveTab={setActiveTab} 
+          setActiveTab={(tab) => {
+            setActiveTab(tab);
+            setShowSearchResults(false);
+          }} 
           isOpen={isSidebarOpen} 
           onClose={() => setIsSidebarOpen(false)}
           quizHistory={quizHistory}
@@ -506,12 +623,15 @@ export default function App() {
       <div className="flex-1 flex flex-col min-w-0 border-r border-border relative z-10">
         <Suspense fallback={<div className="h-16 bg-white/20 animate-pulse" />}>
           <Navbar 
-            user={userData} 
+            user={userData || user} 
             onLogout={logout} 
             activeTab={activeTab} 
-            onToggleAi={() => setShowAiPanel(!showAiPanel)} 
+            onToggleAi={() => activeTab !== 'chat' && setShowAiPanel(!showAiPanel)} 
             onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-            onProfileClick={() => setActiveTab('profile')}
+            onProfileClick={() => {
+              setActiveTab('profile');
+              setShowSearchResults(false);
+            }}
             onSearch={handleSearch}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
@@ -618,7 +738,21 @@ export default function App() {
                     userId={viewingProfileId} 
                     isOwnProfile={viewingProfileId === user.uid} 
                     onClose={() => setViewingProfileId(null)}
+                    onStartChat={startPrivateChat}
                   />
+                </Suspense>
+              </motion.div>
+            )}
+
+            {activeTab === 'pro-model' && (
+              <motion.div 
+                key="pro-model"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                <Suspense fallback={<div className="h-full flex items-center justify-center"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
+                  <ProPage user={userData} isPro={isPro} onUpgrade={upgradeToPro} />
                 </Suspense>
               </motion.div>
             )}
@@ -631,7 +765,7 @@ export default function App() {
                 exit={{ opacity: 0, y: -10 }}
               >
                 <Suspense fallback={<div className="h-full flex items-center justify-center"><Brain className="animate-pulse text-accent" size={48} /></div>}>
-                  <ProfilePage userId={user.uid} isOwnProfile={true} />
+                  <ProfilePage userId={user.uid} isOwnProfile={true} onStartChat={startPrivateChat} />
                 </Suspense>
               </motion.div>
             )}
@@ -816,12 +950,20 @@ export default function App() {
                   </Suspense>
                 ) : selectedLesson ? (
                   <div className="max-w-3xl mx-auto space-y-5">
-                    <button 
-                      onClick={() => { setSelectedLesson(null); setQuizResult(null); }}
-                      className="text-accent text-xs font-bold flex items-center gap-1 hover:underline px-2"
-                    >
-                      ← KEMBALI KE DAFTAR
-                    </button>
+                    <div className="flex justify-between items-center px-2">
+                      <button 
+                        onClick={() => { setSelectedLesson(null); setQuizResult(null); }}
+                        className="text-accent text-xs font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                      >
+                        ← DAFTAR MATERI
+                      </button>
+                      <button 
+                        onClick={() => setActiveTab('learning-path')}
+                        className="text-accent text-xs font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                      >
+                        PETA BELAJAR →
+                      </button>
+                    </div>
                     <div className="glass-card rounded-3xl p-8 space-y-6">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -1006,12 +1148,19 @@ export default function App() {
                     xp={userData?.xp || 0}
                     unlockedTopics={userData?.unlockedTopics || ['cell-structure', 'macromolecules']}
                     topicStats={userData?.topicStats || {}}
+                    isPro={isPro}
+                    onUpgradeClick={() => setActiveTab('pro-model')}
                     onSelectTopic={(id) => {
                       const topic = BIOLOGY_CURRICULUM.find(t => t.id === id);
                       if (topic) {
-                        // For now we map learning topics to lesson categories or specific lessons
-                        // Or we can just filter the lessons tab
-                        setActiveCategory(topic.title);
+                        // Find the first lesson mapped to this topicId
+                        const mappedLesson = LESSONS.find(l => l.topicId === id);
+                        if (mappedLesson) {
+                          setSelectedLesson(mappedLesson);
+                        } else {
+                          // Fallback to category if no specific lesson found
+                          setActiveCategory('All'); 
+                        }
                         setActiveTab('lessons');
                       }
                     }}
@@ -1133,21 +1282,45 @@ export default function App() {
             
             {activeTab === 'chat' && (
               <div className="fixed inset-0 lg:static flex flex-col pt-16 lg:pt-0 pb-0 lg:h-[calc(100vh-120px)] bg-bg lg:bg-transparent z-40 overflow-hidden">
-                <div className="flex-1 min-h-0 lg:p-0">
-                  <Suspense fallback={<div className="h-full flex items-center justify-center"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
-                    <ChatInterface 
-                      messages={chatMessages}
-                      input={inputMessage}
-                      setInput={setInputMessage}
-                      onSend={handleSendMessage}
-                      isLoading={isAiLoading}
-                      selectedImage={selectedImage}
-                      onImageSelect={handleImageSelect}
-                      onClearImage={() => setSelectedImage(null)}
-                      isListening={isListening}
-                      startListening={startListening}
-                    />
-                  </Suspense>
+                <div className="flex-1 flex overflow-hidden lg:rounded-[40px] glass-card shadow-2xl relative">
+                  <div className="w-[320px] hidden md:block shrink-0 border-r border-white/20">
+                    <Suspense fallback={<div className="h-full flex items-center justify-center animate-pulse"><Sparkles /></div>}>
+                      <ChatSidebar 
+                        conversations={conversations}
+                        activeId={activeChatId}
+                        onSelect={setActiveChatId}
+                        onNewChat={createNewAiChat}
+                        isLoading={false}
+                      />
+                    </Suspense>
+                  </div>
+
+                  <div className="flex-1 h-full min-w-0 bg-transparent flex flex-col relative">
+                    {/* Current Chat Mobile Header */}
+                    <div className="md:hidden p-4 border-b border-white/10 flex items-center gap-3 bg-white/20">
+                      <button onClick={() => setActiveChatId(null)} className="p-2 bg-white/40 rounded-full shrink-0"><Plus className="rotate-45" size={16}/></button>
+                      <span className="text-xs font-black truncate">
+                        {conversations.find(c => c.id === activeChatId)?.title || "Dyfa AI"}
+                      </span>
+                    </div>
+
+                    <Suspense fallback={<div className="h-full flex items-center justify-center"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
+                      <ChatInterface 
+                        messages={chatMessages}
+                        input={inputMessage}
+                        setInput={setInputMessage}
+                        onSend={handleSendMessage}
+                        isLoading={isAiLoading}
+                        selectedImage={selectedImage}
+                        onImageSelect={handleImageSelect}
+                        onClearImage={() => setSelectedImage(null)}
+                        isListening={isListening}
+                        startListening={startListening}
+                        activeConv={conversations.find(c => c.id === activeChatId)}
+                        isPro={isPro}
+                      />
+                    </Suspense>
+                  </div>
                 </div>
               </div>
             )}
@@ -1156,40 +1329,52 @@ export default function App() {
       </div>
 
       {/* AI Panel (Persistent on Desktop, Toggleable on Mobile) */}
-      <aside className={cn(
-        "w-[300px] glass-nav flex flex-col shrink-0 border-l border-border transition-all duration-300 z-[60]",
-        "fixed inset-y-0 right-0 xl:static bg-white/90 backdrop-blur-2xl",
-        showAiPanel ? "translate-x-0" : "translate-x-full xl:translate-x-0"
-      )}>
-        <div className="p-5 border-b border-border flex justify-between items-center bg-white/10 shrink-0">
-          <div>
-            <div className="text-sm font-black text-text-main">Dyfa AI</div>
-            <div className="text-[11px] text-emerald-500 font-bold flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              Online & Siap Menjawab
+      <AnimatePresence>
+        {activeTab !== 'chat' && showAiPanel && (
+          <aside className={cn(
+            "w-[340px] flex flex-col shrink-0 border-l border-white/20 transition-all duration-500 z-[60] shadow-2xl",
+            "fixed inset-y-0 right-0 xl:static chat-gradient"
+          )}>
+            <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-accent/5 -z-10" />
+            
+            <div className="p-5 border-b border-white/20 flex justify-between items-center bg-white/10 shrink-0">
+              <div>
+                <div className="text-sm font-black text-text-main flex items-center gap-2">
+                  <div className="w-2 h-2 bg-accent rounded-full animate-bounce" />
+                  Dyfa AI Assistant
+                </div>
+                <div className="text-[10px] text-text-muted font-bold tracking-widest uppercase mt-0.5">
+                  Ready to help you
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowAiPanel(false)} 
+                className="p-1.5 hover:bg-white/40 rounded-full text-text-muted transition-all"
+              >
+                <X size={18} />
+              </button>
             </div>
-          </div>
-          <button onClick={() => setShowAiPanel(false)} className="xl:hidden p-1 text-text-muted"><X size={18} /></button>
-        </div>
 
-        <div className="flex-1 min-h-0">
-          <Suspense fallback={<div className="h-full flex items-center justify-center"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
-            <ChatInterface 
-              messages={chatMessages}
-              input={inputMessage}
-              setInput={setInputMessage}
-              onSend={handleSendMessage}
-              isLoading={isAiLoading}
-              isSidebar={true}
-              selectedImage={selectedImage}
-              onImageSelect={handleImageSelect}
-              onClearImage={() => setSelectedImage(null)}
-              isListening={isListening}
-              startListening={startListening}
-            />
-          </Suspense>
-        </div>
-      </aside>
+            <div className="flex-1 min-h-0 relative">
+              <Suspense fallback={<div className="h-full flex items-center justify-center"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
+                <ChatInterface 
+                  messages={chatMessages}
+                  input={inputMessage}
+                  setInput={setInputMessage}
+                  onSend={handleSendMessage}
+                  isLoading={isAiLoading}
+                  isSidebar={true}
+                  selectedImage={selectedImage}
+                  onImageSelect={handleImageSelect}
+                  onClearImage={() => setSelectedImage(null)}
+                  isListening={isListening}
+                  startListening={startListening}
+                />
+              </Suspense>
+            </div>
+          </aside>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

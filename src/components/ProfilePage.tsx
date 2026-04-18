@@ -15,7 +15,8 @@ import {
   Heart,
   Share2,
   Edit3,
-  Check
+  Check,
+  MessageSquare
 } from 'lucide-react';
 import { db, auth } from '../lib/firebase';
 import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
@@ -25,6 +26,7 @@ interface ProfilePageProps {
   userId: string;
   isOwnProfile: boolean;
   onClose?: () => void;
+  onStartChat?: (userId: string) => void;
 }
 
 const BORDERS = [
@@ -36,7 +38,7 @@ const BORDERS = [
   { id: 'diamond', name: 'Diamond Biologist', color: '#B9F2FF', minLevel: 50 },
 ];
 
-export const ProfilePage = memo(({ userId, isOwnProfile, onClose }: ProfilePageProps) => {
+export const ProfilePage = memo(({ userId, isOwnProfile, onClose, onStartChat }: ProfilePageProps) => {
   const [profileData, setProfileData] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
@@ -161,6 +163,16 @@ export const ProfilePage = memo(({ userId, isOwnProfile, onClose }: ProfilePageP
               >
                 <Edit3 size={16} />
                 Edit Profil
+              </button>
+            )}
+
+            {!isOwnProfile && onStartChat && (
+              <button 
+                onClick={() => onStartChat(userId)}
+                className="bg-accent text-white px-6 py-3 rounded-2xl text-sm font-bold shadow-lg shadow-accent/20 transition-all flex items-center gap-2 liquid-button"
+              >
+                <MessageSquare size={16} />
+                Kirim Pesan
               </button>
             )}
           </div>

@@ -17,7 +17,7 @@ const getAI = () => {
   return genAI;
 };
 
-export const getGeminiResponse = async (prompt: string, history: any[] = [], imageBase64?: string) => {
+export const getGeminiResponse = async (prompt: string, history: any[] = [], imageBase64?: string, isPro: boolean = false) => {
   const ai = getAI();
   if (!ai) throw new Error("AI client not initialized. Please check your API key.");
   
@@ -47,7 +47,9 @@ export const getGeminiResponse = async (prompt: string, history: any[] = [], ima
     model: "gemini-flash-latest",
     contents,
     config: {
-      systemInstruction: "You are Dyfa AI, an expert Biology tutor specializing in OSP (Olimpiade Sains Provinsi) Biologi. You help students understand complex biological concepts, provide study strategies, and solve practice problems. Keep your tone encouraging, professional, and clear. Use Indonesian as the primary language, but use scientific terms correctly. If the user provides an image, analyze it deeply in the context of OSP Biologi.",
+      systemInstruction: `You are Dyfa AI ${isPro ? 'PRO (Elite Version)' : ''}, an expert Biology tutor specializing in ${isPro ? 'National OSN (Olimpiade Sains Nasional)' : 'OSP (Olimpiade Sains Provinsi)'} Biologi. 
+        ${isPro ? 'As a PRO model, you provide extremely advanced, detailed, and analytical responses. You are direct, formal, and use high-level biological terminology.' : 'You help students understand complex biological concepts, provide study strategies, and solve practice problems. Keep your tone encouraging and professional.'}
+        Use Indonesian as the primary language, but use scientific terms correctly. If the user provides an image, analyze it deeply in the context of ${isPro ? 'Advanced OSN' : 'OSP'} Biologi.`,
     }
   });
 
@@ -82,7 +84,8 @@ export const generateQuiz = async (
   topicContent: string, 
   count: number = 10,
   isTryOut: boolean = false,
-  weaknessFocus?: string[]
+  weaknessFocus?: string[],
+  isPro: boolean = false
 ) => {
   const ai = getAI();
   if (!ai) throw new Error("AI client not initialized. Please check your API key.");
@@ -90,10 +93,10 @@ export const generateQuiz = async (
   let prompt = `Buatkan ${count} soal tentang topik: ${topicTitle}. 
     Gunakan materi berikut sebagai referensi: ${topicContent}.`;
 
-  if (isTryOut) {
-    prompt = `Buatkan ${count} soal simulasi OSN (Olimpiade Sains Nasional) Biologi tingkat Provinsi. 
+  if (isTryOut || isPro) {
+    prompt = `Buatkan ${count} soal simulasi OSN (Olimpiade Sains Nasional) Biologi tingkat ${isPro ? 'NASIONAL (ELITE)' : 'Provinsi'}. 
     Soal harus mencakup berbagai topik biologi modern (Biokimia, Genetika, Fisiologi, Ekologi).
-    Tingkat kesulitan harus TINGGI (Olympic Grade), fokus pada analisis data dan pemecahan masalah eksperimental.`;
+    Tingkat kesulitan harus ${isPro ? 'SANGAT TINGGI (ELITE OSN)' : 'TINGGI (Olympic Grade)'}, fokus pada analisis data, pemecahan masalah eksperimental, dan interpretasi grafik atau tabel statistik.`;
   }
 
   if (weaknessFocus && weaknessFocus.length > 0) {

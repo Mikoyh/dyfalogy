@@ -123,12 +123,14 @@ export const Navbar = memo(({
         </div>
         
         <div className="flex items-center gap-3 sm:gap-4">
-          <button 
-            onClick={onToggleAi}
-            className="xl:hidden p-2 text-accent hover:bg-accent/10 rounded-full transition-all"
-          >
-            <MessageSquare size={20} />
-          </button>
+          {activeTab !== 'chat' && (
+            <button 
+              onClick={onToggleAi}
+              className="xl:hidden p-2 text-accent hover:bg-accent/10 rounded-full transition-all"
+            >
+              <MessageSquare size={20} />
+            </button>
+          )}
           {user && (
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">

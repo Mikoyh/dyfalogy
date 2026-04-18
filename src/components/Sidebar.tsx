@@ -11,7 +11,8 @@ import {
   MessageSquare, 
   User, 
   Zap, 
-  LifeBuoy 
+  LifeBuoy,
+  Trophy
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { LESSONS, Lesson } from '../constants/data';
@@ -63,6 +64,7 @@ export const Sidebar = memo(({
       label: 'Personal',
       items: [
         { id: 'profile', icon: User, label: 'Profil Saya' },
+        { id: 'pro-model', icon: Trophy, label: 'Dyfalogy Pro' },
         { id: 'strategies', icon: Zap, label: 'Strategi Belajar' },
         { id: 'customer-service', icon: LifeBuoy, label: 'Pusat Bantuan' },
       ]

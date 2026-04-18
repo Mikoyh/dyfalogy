@@ -1,96 +1,131 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users
-    // Document ID: {userId} (Auth UID)
-    // Fields:
-    //   - uid: string (required)
-    //   - displayName: string
-    //   - email: string (required)
-    //   - photoURL: string
-    //   - level: number (current level 1-50)
-    //   - xp: number
-    //   - unlockedTopics: list
-    //   - topicStats: map (Topic ID -> Score)
-    //   - dailyStreak: number
-    //   - lastActive: timestamp/string
-    //   - badges: list
-    //   - createdAt: timestamp
-    //
-    // Collection: flashcards
-    // Fields: userId, front, back, topic, easeFactor, interval, nextReview, consecutiveCorrect
-    //
-    // Collection: forumTopics
-    // Fields: title, content, authorId, authorName, authorPhoto, replyCount, createdAt
-    //
-    // Collection: forumTopics/{topicId}/replies
-    // Fields: topicId, content, authorId, authorName, authorPhoto, createdAt
-    //
-    // ===============================================================
+    // ==========================================
+    // 0. GLOBAL SAFETY NET
+    // ==========================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
-    // Helper Functions
-    function isAuthenticated() {
+    // ==========================================
+    // Helper Functions (The Primitives)
+    // ==========================================
+    function isSignedIn() {
       return request.auth != null;
     }
 
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // ==========================================
+    // 1. USERS COLLECTION
+    // ==========================================
     function isValidUser(data) {
+      // Allow optional fields like stats and isPro
       return data.keys().hasAll(['uid', 'email']) &&
-             data.uid is string &&
-             data.email is string;
-    }
-
-    function isValidTopic(data) {
-      return data.keys().hasAll(['title', 'content', 'authorId']) &&
-             data.authorId == request.auth.uid &&
-             data.title is string && data.title.size() < 200 &&
-             data.content is string && data.content.size() < 5000;
-    }
-
-    function isValidReply(data) {
-      return data.keys().hasAll(['content', 'authorId']) &&
-             data.authorId == request.auth.uid &&
-             data.content is string && data.content.size() < 2000;
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 256;
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data);
-      
-      match /chatHistory/{messageId} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId);
-      }
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId) && isValidUser(incoming());
 
-      match /quizResults/{resultId} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId);
+      // Subcollections
+      match /chatHistory/{msgId} {
+        allow read, write: if isOwner(userId);
       }
-
+      match /quizResults/{resId} {
+        allow read, create: if isOwner(userId);
+      }
       match /flashcards/{cardId} {
-        allow read: if isOwner(userId);
-        allow write: if isOwner(userId);
+        allow read, write: if isOwner(userId);
       }
     }
 
+    // ==========================================
+    // 2. CONVERSATIONS & MESSAGES
+    // ==========================================
+    function isValidConversation(data) {
+      return data.keys().hasAll(['type', 'participants', 'updatedAt']) &&
+             data.type in ['ai', 'p2p'] &&
+             data.participants is list &&
+             data.participants.size() >= 1 &&
+             data.participants.size() <= 10 &&
+             request.auth.uid in data.participants;
+    }
+
+    match /conversations/{convId} {
+      allow get: if isSignedIn() && request.auth.uid in existing().participants;
+      allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
+      
+      allow create: if isSignedIn() && isValidConversation(incoming()) && 
+                    incoming().createdAt == request.time;
+      
+      allow update: if isSignedIn() && request.auth.uid in existing().participants &&
+                    isValidConversation(incoming()) &&
+                    incoming().updatedAt == request.time &&
+                    incoming().diff(existing()).affectedKeys().hasAny(['lastMessage', 'updatedAt', 'title']);
+
+      match /messages/{msgId} {
+        // Use a simpler check for list/read to avoid get() costs where possible
+        allow read, list: if isSignedIn(); 
+        allow create: if isSignedIn() && 
+                      incoming().timestamp == request.time;
+      }
+    }
+
+    // ==========================================
+    // 3. FORUM TOPICS & REPLIES
+    // ==========================================
+    function isValidTopic(data) {
+      return data.keys().hasAll(['title', 'content', 'authorId', 'authorName']) &&
+             data.authorId == request.auth.uid &&
+             data.title is string && data.title.size() <= 300 &&
+             data.content is string && data.content.size() <= 20000;
+    }
+
     match /forumTopics/{topicId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isValidTopic(request.resource.data);
-      allow update: if isAuthenticated() && (isOwner(resource.data.authorId) || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['replyCount']));
-      allow delete: if isAuthenticated() && isOwner(resource.data.authorId);
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidTopic(incoming()) && 
+                    incoming().createdAt == request.time;
+      allow update: if isSignedIn() && (
+        // Author update
+        (existing().authorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['title', 'content', 'updatedAt', 'isPromoted'])) ||
+        // Anyone can update replyCount or reactions
+        (incoming().diff(existing()).affectedKeys().hasAny(['replyCount', 'reactions']))
+      );
+      allow delete: if isSignedIn() && existing().authorId == request.auth.uid;
 
       match /replies/{replyId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && isValidReply(request.resource.data);
-        allow delete: if isAuthenticated() && isOwner(resource.data.authorId);
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && 
+                      incoming().authorId == request.auth.uid &&
+                      incoming().content is string && incoming().content.size() <= 10000 &&
+                      incoming().createdAt == request.time;
+        allow update: if isSignedIn() && (
+          (existing().authorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['content', 'updatedAt'])) ||
+          (incoming().diff(existing()).affectedKeys().hasAny(['reactions']))
+        );
+        allow delete: if isSignedIn() && existing().authorId == request.auth.uid;
       }
     }
   }

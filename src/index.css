@@ -65,6 +65,11 @@
     @apply backdrop-blur-3xl bg-white/10 border border-white/20 shadow-xl;
   }
 
+  .chat-gradient {
+    background: linear-gradient(135deg, rgba(232, 245, 233, 0.4) 0%, rgba(255, 255, 255, 0.6) 50%, rgba(241, 248, 233, 0.4) 100%);
+    backdrop-filter: blur(40px) saturate(180%);
+  }
+
   .liquid-button {
     @apply relative overflow-hidden transition-all duration-500 active:scale-95 hover:shadow-lg hover:shadow-accent/10;
   }
