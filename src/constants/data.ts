@@ -8,6 +8,10 @@ export interface Lesson {
   content: string;
   xpReward: number;
   topicId?: string;
+  aiAssets?: {
+    images?: { url: string; caption: string }[];
+    videos?: { url: string; title: string; description: string }[];
+  };
 }
 
 export type QuestionType = 'MULTIPLE_CHOICE' | 'MULTIPLE_STATEMENTS';
@@ -89,7 +93,26 @@ Jaringan serat protein yang menjaga bentuk sel dan memfasilitasi pergerakan:
 > **Tip OSN**: Pahami perbedaan sel hewan dan tumbuhan secara mendalam. Tumbuhan memiliki dinding sel (selulosa), kloroplas, dan vakuola besar, tetapi biasanya tidak memiliki sentriol (kecuali sel sperma tumbuhan rendah).
     `,
     xpReward: 300,
-    topicId: 'cell-structure'
+    topicId: 'cell-structure',
+    aiAssets: {
+      images: [
+        { 
+          url: 'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&q=80&w=1000', 
+          caption: 'Visualisasi 3D Struktur Sel Eukariotik dengan Detail Organel Utama (AI Generated Visualization)' 
+        },
+        {
+          url: 'https://images.unsplash.com/photo-1576086213369-97a306d36557?auto=format&fit=crop&q=80&w=1000',
+          caption: 'Detail Mikroskopis Membran Sel dan Protein Integral (High Fidelity Render)'
+        }
+      ],
+      videos: [
+        {
+          url: 'https://www.youtube.com/embed/URUJD5NEXC8', // Standard high quality bio video as placeholder
+          title: 'Perjalanan ke Dalam Sel',
+          description: 'Animasi kinematik yang menunjukkan interaksi dinamik antar organel sel dalam waktu nyata.'
+        }
+      ]
+    }
   },
   {
     id: 'macromolecules-1',
@@ -114,7 +137,16 @@ DNA dan RNA adalah polimer dari **nukleotida**. Setiap nukleotida terdiri dari: 
 > **OSN Insight**: Ingat bahwa ikatan hidrogen antara C-G (3 ikatan) lebih kuat daripada A-T (2 ikatan). DNA dengan kandungan GC tinggi memiliki titik didih (T_m) yang lebih tinggi.
     `,
     xpReward: 350,
-    topicId: 'macromolecules'
+    topicId: 'macromolecules',
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1579033390033-247b3399086e?auto=format&fit=crop&q=80&w=1000', caption: 'Struktur Heliks Ganda DNA (High-Resolution AI Render)' },
+        { url: 'https://images.unsplash.com/photo-1628595351029-c2bf17511435?auto=format&fit=crop&q=80&w=1000', caption: 'Visualisasi Lipatan Protein pada Tingkat Tersier' }
+      ],
+      videos: [
+        { url: 'https://www.youtube.com/embed/o_-6JZisHwA', title: 'Mekanisme Replikasi DNA', description: 'Animasi detail tentang bagaimana enzim bekerja secara sinkron untuk menggandakan untai DNA.' }
+      ]
+    }
   },
   {
     id: 'metabolism-1',
@@ -140,7 +172,15 @@ Enzim menurunkan **energi aktivasi** reaksi tanpa ikut bereaksi.
 Langkah awal respirasi seluler di sitosol. Mengubah 1 molekul Glukosa menjadi 2 molekul Piruvat, menghasilkan 2 ATP dan 2 NADH. Bersifat anaerobik.
     `,
     xpReward: 450,
-    topicId: 'metabolism'
+    topicId: 'metabolism',
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1628595305749-982393bc6741?auto=format&fit=crop&q=80&w=1000', caption: 'Struktur Kompleks Enzim-Substrat dan Energi Aktivasi' }
+      ],
+      videos: [
+        { url: 'https://www.youtube.com/embed/AFh77660NNo', title: 'Glikolisis: Visualisasi 3D', description: 'Perjalanan molekul glukosa saat dipecah menjadi energi dalam sitosol sel.' }
+      ]
+    }
   },
   {
     id: 'molecular-genetics-1',
@@ -168,7 +208,15 @@ Pembacaan kode genetik (kodon) oleh ribosom di sitoplasma.
 - **Start Kodon**: AUG (Metionin).
     `,
     xpReward: 500,
-    topicId: 'molecular-genetics'
+    topicId: 'molecular-genetics',
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1579154235602-3c2c2aa94685?auto=format&fit=crop&q=80&w=1000', caption: 'Proses Transkripsi mRNA oleh RNA Polimerase (AI Molecular Flow)' }
+      ],
+      videos: [
+        { url: 'https://www.youtube.com/embed/gG7uCskUOrA', title: 'Dogma Sentral Biologi', description: 'Dari gen menjadi protein: aliran informasi genetik yang menghidupkan sel.' }
+      ]
+    }
   },
   {
     id: 'population-genetics-1',
@@ -197,7 +245,15 @@ Menyatakan bahwa frekuensi alel dan genotip dalam suatu populasi akan tetap kons
 > **Solusi**: q^2 = 0.16 -> q = 0.4. Maka p = 0.6. Heterozigot (2pq) = 2 * 0.6 * 0.4 = 0.48 atau 48%.
     `,
     xpReward: 600,
-    topicId: 'population-genetics'
+    topicId: 'population-genetics',
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1543269664-56ec423d249d?auto=format&fit=crop&q=80&w=1000', caption: 'Visualisasi Distribusi Alel dalam Populasi Ideal (Hardy-Weinberg Model)' }
+      ],
+      videos: [
+        { url: 'https://www.youtube.com/embed/oG7702M2R8c', title: 'Simulasi Hanyutan Genetik', description: 'Bagaimana frekuensi alel berubah secara acak dalam populasi kecil.' }
+      ]
+    }
   },
   {
     id: 'mol-bio-1',
@@ -214,7 +270,15 @@ Teknik untuk memisahkan fragmen DNA berdasarkan ukurannya menggunakan medan list
 Teknik untuk memisahkan protein berdasarkan berat molekulnya. SDS memberikan muatan negatif yang seragam pada protein, sehingga pemisahan murni berdasarkan ukuran saat melewati gel poliakrilamida.
     `,
     xpReward: 200,
-    topicId: 'molecular-genetics'
+    topicId: 'molecular-genetics',
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1579154235602-3c2c2aa94685?auto=format&fit=crop&q=80&w=1000', caption: 'Hasil Elektroforesis Gel Agarosa dengan Ladder DNA' }
+      ],
+      videos: [
+        { url: 'https://www.youtube.com/embed/mN5IvS9FrwY', title: 'Cara Kerja Elektroforesis', description: 'Animasi pergerakan fragmen DNA melalui pori-gel di bawah pengaruh medan listrik.' }
+      ]
+    }
   },
   {
     id: 'anfis-tum-1',
@@ -227,7 +291,12 @@ Teknik untuk memisahkan protein berdasarkan berat molekulnya. SDS memberikan mua
 Akar dan batang tumbuhan terdiri dari tiga sistem jaringan utama: epidermis, jaringan dasar (korteks dan empulur), serta jaringan vaskuler (xilem dan floem). Akar memiliki endodermis dengan pita Caspary yang mengatur aliran air, sedangkan batang dikotil memiliki kambium vaskuler.
     `,
     xpReward: 100,
-    topicId: 'cell-structure'
+    topicId: 'cell-structure',
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1528183429752-a97d0bf99b5a?auto=format&fit=crop&q=80&w=1000', caption: 'Irisan Melintang Akar Dikotil: Detail Stele dan Pita Caspary' }
+      ]
+    }
   },
   {
     id: 'anfis-tum-2',
@@ -259,7 +328,15 @@ Terjadi di floem melalui **Aliran Tekanan (Pressure Flow Hypothesis)**.
 > **Jawab**: Auksin. Karena auksin tidak terurai oleh cahaya di sisi gelap, konsentrasinya tinggi dan memacu pemanjangan sel secara ekstrem.
     `,
     xpReward: 500,
-    topicId: 'cell-structure'
+    topicId: 'cell-structure',
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1464306303998-cb8675765169?auto=format&fit=crop&q=80&w=1000', caption: 'Visualisasi Aliran Air pada Xilem melalui Gaya Kohesi-Adhesi' }
+      ],
+      videos: [
+        { url: 'https://www.youtube.com/embed/LbeZ0a6L6T8', title: 'Mekanisme Kerja Fitohormon', description: 'Bagaimana Auksin dan Giberelin memacu pertumbuhan sel tumbuhan secara selektif.' }
+      ]
+    }
   },
   {
     id: 'anfis-wan-1',
@@ -271,7 +348,15 @@ Terjadi di floem melalui **Aliran Tekanan (Pressure Flow Hypothesis)**.
     content: `
 Sistem peredaran darah tertutup pada vertebrata melibatkan jantung sebagai pompa. Darah mengalir dari ventrikel ke arteri, kapiler (pertukaran gas), vena, dan kembali ke atrium. Pada mamalia, terdapat sirkulasi ganda: sistemik dan pulmonal.
     `,
-    xpReward: 150
+    xpReward: 150,
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1530026186672-2cd00ffc50fe?auto=format&fit=crop&q=80&w=1000', caption: 'Struktur Jantung Mamalia: Katup dan Aliran Darah' }
+      ],
+      videos: [
+        { url: 'https://www.youtube.com/embed/f9ONVdn1KNo', title: 'Sirkulasi Darah Ganda', description: 'Animasi perjalanan darah kaya oksigen dan karbon dioksida di dalam tubuh.' }
+      ]
+    }
   },
   {
     id: 'biosystematics-1',
@@ -298,7 +383,15 @@ Interpretasi hubungan kekerabatan menggunakan data morfologi dan molekuler (DNA)
 > **Challenge OSN**: Diberikan tabel karakter (misal: ada/tidaknya rahang, paru-paru, rambut), susunlah kladogram yang paling parsimonius (paling sederhana).
     `,
     xpReward: 500,
-    topicId: 'biosystematics'
+    topicId: 'biosystematics',
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1550684376-efcbd6e3f031?auto=format&fit=crop&q=80&w=1000', caption: 'Pohon Filogenetik Kompleks: Jejak Evolusi Kehidupan' }
+      ],
+      videos: [
+        { url: 'https://www.youtube.com/embed/hVvO_S1B5XU', title: 'Cara Membaca Kladogram', description: 'Panduan langkah demi langkah menentukan kekerabatan antar spesies.' }
+      ]
+    }
   },
   {
     id: 'ecology-foundation-1',
@@ -325,7 +418,12 @@ Proses perubahan komposisi spesies dalam komunitas seiring waktu.
 - **Suksesi Primer**: Dimulai dari lahan kosong tanpa tanah (misal: setelah letusan gunung).
 - **Suksesi Sekunder**: Terjadi setelah gangguan (misal: kebakaran hutan) di lahan yang sudah memiliki tanah.
     `,
-    xpReward: 300
+    xpReward: 300,
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=1000', caption: 'Interaksi Biotik dan Abiotik dalam Suatu Ekosistem Hutan' }
+      ]
+    }
   },
   {
     id: 'animal-phys-foundation-1',
@@ -352,7 +450,12 @@ Berfungsi untuk pergerakan.
 ### 4. Jaringan Saraf
 Menerima dan menghantarkan impuls listrik. Terdiri dari neuron dan sel glia.
     `,
-    xpReward: 300
+    xpReward: 300,
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&q=80&w=1000', caption: 'Empat Tipe Jaringan Utama pada Tubuh Hewan (AI Comparison Map)' }
+      ]
+    }
   },
   {
     id: 'genetik-1',
@@ -364,7 +467,12 @@ Menerima dan menghantarkan impuls listrik. Terdiri dari neuron dan sel glia.
     content: `
 Hukum Mendel I (Segregasi) menyatakan alel memisah secara bebas saat pembentukan gamet. Hukum Mendel II (Asortasi Bebas) menyatakan pasangan alel memisah secara bebas dari pasangan lain. Rasio fenotip monohibrid dominan-resesif adalah 3:1.
     `,
-    xpReward: 100
+    xpReward: 100,
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1582719201990-255d88f6233d?auto=format&fit=crop&q=80&w=1000', caption: 'Visualisasi Diagram Punnett untuk Persilangan Dihibrid' }
+      ]
+    }
   },
   {
     id: 'ekologi-1',
@@ -376,7 +484,12 @@ Hukum Mendel I (Segregasi) menyatakan alel memisah secara bebas saat pembentukan
     content: `
 Energi masuk ke ekosistem melalui produsen (fotosintesis). Hanya sekitar 10% energi yang berpindah ke tingkat trofik berikutnya (Aturan 10%). Detritivor membantu mendaur ulang nutrisi ke tanah.
     `,
-    xpReward: 100
+    xpReward: 100,
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80&w=1000', caption: 'Piramida Energi: Aliran Efisiensi 10% di Ekosistem Alami' }
+      ]
+    }
   },
   {
     id: 'etologi-1',
@@ -388,7 +501,15 @@ Energi masuk ke ekosistem melalui produsen (fotosintesis). Hanya sekitar 10% ene
     content: `
 Perilaku hewan dibedakan menjadi *innate* (insting) dan *learned* (belajar). Contoh perilaku belajar meliputi pembiasaan (habituation), pengondisian klasik (classical conditioning), dan imprinting (perekaman pada fase kritis).
     `,
-    xpReward: 150
+    xpReward: 150,
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&q=80&w=1000', caption: 'Contoh Perilaku Belajar Imprinting pada Burung' }
+      ],
+      videos: [
+        { url: 'https://www.youtube.com/embed/6hREbe98E7M', title: 'Eksperimen Pavlov', description: 'Bagaimana pengondisian klasik mengubah respon instingtual hewan.' }
+      ]
+    }
   },
   {
     id: 'sistematika-1',
@@ -400,7 +521,12 @@ Perilaku hewan dibedakan menjadi *innate* (insting) dan *learned* (belajar). Con
     content: `
 Kladistika mengelompokkan organisme berdasarkan nenek moyang bersama. Kladogram menunjukkan hubungan evolusioner menggunakan karakter sinapomorfi. Kelompok monofiletik mencakup semua keturunan dari nenek moyang yang sama.
     `,
-    xpReward: 250
+    xpReward: 250,
+    aiAssets: {
+      images: [
+        { url: 'https://images.unsplash.com/photo-1563200133-cfa77d598501?auto=format&fit=crop&q=80&w=1000', caption: 'Kladogram Filogeni Vertebrata: Kerabat Terdekat Manusia' }
+      ]
+    }
   }
 ];
 

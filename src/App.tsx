@@ -42,7 +42,9 @@ import {
   Trash2,
   CheckCheck,
   Skull,
-  Calculator
+  Calculator,
+  Play,
+  Lock
 } from 'lucide-react';
 import { LESSONS, STUDY_STRATEGIES, BADGES, Lesson, Badge, CATEGORIES } from './constants/data';
 import ReactMarkdown from 'react-markdown';
@@ -1045,6 +1047,99 @@ export default function App() {
                       <div className="prose prose-emerald max-w-none text-text-main leading-relaxed">
                         <ReactMarkdown>{selectedLesson.content}</ReactMarkdown>
                       </div>
+
+                      {/* AI PRO FEATURES SECTION */}
+                      {selectedLesson.aiAssets && (
+                        <div className="mt-8 space-y-6">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
+                              <Sparkles size={16} /> Visualisasi Pro AI
+                            </h4>
+                            {!userData?.isPro && (
+                              <span className="px-3 py-1 bg-amber-100 text-amber-600 text-[9px] font-black rounded-full uppercase tracking-widest flex items-center gap-1">
+                                <Lock size={10} /> Akun Pro Diperlukan
+                              </span>
+                            )}
+                          </div>
+
+                          {userData?.isPro ? (
+                            <div className="space-y-6">
+                              {/* Images Grid */}
+                              {selectedLesson.aiAssets.images && selectedLesson.aiAssets.images.length > 0 && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {selectedLesson.aiAssets.images.map((img, idx) => (
+                                    <motion.div 
+                                      key={idx}
+                                      whileHover={{ scale: 1.02 }}
+                                      className="group relative rounded-[32px] overflow-hidden border border-accent/10 shadow-xl bg-white"
+                                    >
+                                      <img 
+                                        src={img.url} 
+                                        alt={img.caption} 
+                                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-700"
+                                        referrerPolicy="no-referrer"
+                                      />
+                                      <div className="p-4">
+                                        <p className="text-[10px] font-medium text-text-muted leading-relaxed italic">
+                                          {img.caption}
+                                        </p>
+                                      </div>
+                                      <div className="absolute top-3 right-3 p-2 bg-accent/20 backdrop-blur-md rounded-full text-accent opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <ImageIcon size={14} />
+                                      </div>
+                                    </motion.div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Video Section */}
+                              {selectedLesson.aiAssets.videos && selectedLesson.aiAssets.videos.length > 0 && (
+                                <div className="space-y-4">
+                                  {selectedLesson.aiAssets.videos.map((vid, idx) => (
+                                    <div key={idx} className="glass-card overflow-hidden rounded-[32px] border border-accent/10 border-white/40 shadow-2xl">
+                                      <div className="relative aspect-video bg-black/10 group cursor-pointer overflow-hidden border-b border-white/20">
+                                         <iframe
+                                          className="w-full h-full"
+                                          src={vid.url}
+                                          title={vid.title}
+                                          frameBorder="0"
+                                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                          allowFullScreen
+                                        ></iframe>
+                                      </div>
+                                      <div className="p-6">
+                                        <div className="flex items-center gap-3 mb-2">
+                                          <div className="w-8 h-8 bg-accent/10 rounded-xl flex items-center justify-center text-accent">
+                                            <Play size={16} fill="currentColor" />
+                                          </div>
+                                          <h5 className="font-black text-lg tracking-tight">{vid.title}</h5>
+                                        </div>
+                                        <p className="text-xs text-text-muted leading-relaxed">{vid.description}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div 
+                              onClick={() => setActiveTab('pro')} 
+                              className="relative group cursor-pointer overflow-hidden rounded-[32px] border-2 border-dashed border-accent/20 p-12 text-center transition-all hover:bg-accent/5"
+                            >
+                              <div className="bg-white/50 backdrop-blur-sm p-4 rounded-2xl inline-block mb-4 shadow-sm group-hover:scale-110 transition-transform">
+                                <Lock size={32} className="text-accent" />
+                              </div>
+                              <h5 className="text-lg font-black mb-2">Konten Visual AI Terkunci</h5>
+                              <p className="text-sm text-text-muted max-w-sm mx-auto mb-6">
+                                Dapatkan akses ke video animasi 3D dan gambar mikroskopis yang dihasilkan AI untuk membantu kamu visualisasi konsep Biologi yang kompleks.
+                              </p>
+                              <button className="bg-accent text-white px-8 py-3 rounded-2xl text-xs font-black shadow-xl shadow-accent/20 group-hover:shadow-accent/40 transition-all">
+                                BUKA FITUR PRO SEKARANG
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {selectedLesson.topicId && (
                         <div className="mt-8 p-6 bg-accent/5 rounded-[32px] border border-accent/10">
