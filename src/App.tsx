@@ -598,6 +598,14 @@ export default function App() {
   );
 
   if (!user) {
+    if (activeTab === 'depalen-portfolio') {
+      return (
+        <Suspense fallback={<div className="h-screen flex items-center justify-center bg-bg"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
+          <PortfolioPage onBack={() => setActiveTab('dashboard')} />
+        </Suspense>
+      );
+    }
+
     if (showAuth) {
       return (
         <Suspense fallback={<div className="h-screen flex items-center justify-center bg-bg"><Brain className="animate-pulse text-accent" size={48} /></div>}>
