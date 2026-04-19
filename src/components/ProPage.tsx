@@ -29,10 +29,18 @@ declare global {
   }
 }
 
-export const ProPage = ({ user, isPro, onUpgrade }: ProPageProps) => {
+export const ProPage = ({ user, userData, isPro, onUpgrade, onCancelSubscription }: { 
+  user: any; 
+  userData: any;
+  isPro: boolean; 
+  onUpgrade: () => Promise<void>; 
+  onCancelSubscription: () => Promise<void>;
+}) => {
   const [step, setStep] = useState<'benefits' | 'payment-method' | 'processing' | 'success'>('benefits');
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelStep, setCancelStep] = useState<0 | 1 | 2>(0); // 0: none, 1: first check, 2: final check
 
   const benefits = [
     {
@@ -66,12 +74,9 @@ export const ProPage = ({ user, isPro, onUpgrade }: ProPageProps) => {
     setStep('processing');
     
     try {
-      // 1. Get Token from Backend
       const response = await fetch('/api/create-payment', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user.uid,
           userEmail: user.email,
@@ -84,13 +89,10 @@ export const ProPage = ({ user, isPro, onUpgrade }: ProPageProps) => {
       const { token, orderId: newOrderId } = await response.json();
       setOrderId(newOrderId);
 
-      // 2. Open Midtrans Snap Popup
       if (window.snap) {
         window.snap.pay(token, {
           onSuccess: async (result: any) => {
             console.log("Payment Success:", result);
-            // In a better world, we wait for webhook. 
-            // Here we just notify the component to update local status too
             await onUpgrade();
             setStep('success');
           },
@@ -105,12 +107,9 @@ export const ProPage = ({ user, isPro, onUpgrade }: ProPageProps) => {
             setStep('benefits');
           },
           onClose: () => {
-            console.log("Payment Popup Closed");
             setStep('benefits');
           }
         });
-      } else {
-        throw new Error("Midtrans Snap library not loaded");
       }
     } catch (err) {
       console.error(err);
@@ -119,7 +118,18 @@ export const ProPage = ({ user, isPro, onUpgrade }: ProPageProps) => {
     }
   };
 
+  const handleCancelClick = () => setCancelStep(1);
+
+  const confirmCancel = async () => {
+    setIsCancelling(true);
+    await onCancelSubscription();
+    setIsCancelling(false);
+    setCancelStep(0);
+  };
+
   if (isPro) {
+    const expiredDate = userData?.proUntil?.toDate?.() || (userData?.proUntil ? new Date(userData.proUntil) : null);
+
     return (
       <div className="max-w-4xl mx-auto py-12 px-6">
         <div className="glass-card rounded-[40px] p-12 text-center relative overflow-hidden">
@@ -129,15 +139,16 @@ export const ProPage = ({ user, isPro, onUpgrade }: ProPageProps) => {
           <div className="w-20 h-20 bg-gold/20 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl badge-glow">
             <Trophy className="text-gold" size={40} />
           </div>
-          <h1 className="text-4xl font-black mb-4 tracking-tight">Selamat, {user?.displayName}!</h1>
-          <p className="text-lg text-text-muted mb-8 max-w-lg mx-auto leading-relaxed">
-            Kamu sekarang adalah member <span className="text-gold font-black">Dyfalogy Pro</span>. Semua fitur premium telah terbuka untukmu. Selamat berjuang menuju Medali Emas!
+          <h1 className="text-4xl font-black mb-4 tracking-tight">Status: Pro Member</h1>
+          <p className="text-lg text-text-muted mb-6 max-w-lg mx-auto leading-relaxed">
+            Langganan aktif sampai: <span className="text-accent font-black">{expiredDate?.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) || 'Selamanya'}</span>
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left mb-12">
             {[
-               { icon: <CheckCircle2 className="text-emerald-500" size={18} />, label: "AI Tanpa Batas" },
-               { icon: <CheckCircle2 className="text-emerald-500" size={18} />, label: "Materi Eksklusif" },
-               { icon: <CheckCircle2 className="text-emerald-500" size={18} />, label: "Prioritas Layanan" }
+               { icon: <CheckCircle2 className="text-emerald-500" size={18} />, label: "Fitur AI Terbuka" },
+               { icon: <CheckCircle2 className="text-emerald-500" size={18} />, label: "Materi OSN 2026" },
+               { icon: <CheckCircle2 className="text-emerald-500" size={18} />, label: "Support Prioritas" }
             ].map((item, i) => (
               <div key={i} className="bg-white/40 p-4 rounded-2xl flex items-center gap-3 border border-white/50">
                 {item.icon}
@@ -145,7 +156,71 @@ export const ProPage = ({ user, isPro, onUpgrade }: ProPageProps) => {
               </div>
             ))}
           </div>
+
+          <button 
+            onClick={handleCancelClick}
+            className="text-xs font-bold text-red-500/60 hover:text-red-500 hover:underline transition-all"
+          >
+            Batalkan Berlangganan
+          </button>
         </div>
+
+        {/* Double Cancellation Confirmation */}
+        <AnimatePresence>
+          {cancelStep > 0 && (
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setCancelStep(0)}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-sm glass-card rounded-3xl p-8 border border-white/50 shadow-2xl overflow-hidden text-center"
+              >
+                 {cancelStep === 1 ? (
+                   <div className="space-y-6">
+                      <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
+                        <ShieldCheck size={32} />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-black">Yakin mau membatalkan?</h3>
+                        <p className="text-sm text-text-muted">Kamu akan kehilangan akses ke model AI Pro dan materi simulasi OSN eksklusif.</p>
+                      </div>
+                      <div className="flex gap-3">
+                         <button onClick={() => setCancelStep(0)} className="flex-1 py-3 bg-gray-100 rounded-xl font-bold text-sm">Tetap Pro</button>
+                         <button onClick={() => setCancelStep(2)} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold text-sm">Lanjut Batal</button>
+                      </div>
+                   </div>
+                 ) : (
+                   <div className="space-y-6">
+                      <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto border-4 border-red-600/20 animate-pulse">
+                        <Trophy size={32} />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-black text-red-600">VERIFIKASI TERAKHIR</h3>
+                        <p className="text-sm text-text-muted">BENERAN MAU DICABUT STATUS PRO-NYA? Kamu harus beli lagi nanti untuk bisa akses fitur ini.</p>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                         <button 
+                           disabled={isCancelling}
+                           onClick={confirmCancel} 
+                           className="w-full py-4 bg-red-600 text-white rounded-xl font-black text-xs uppercase tracking-widest disabled:opacity-50"
+                         >
+                           {isCancelling ? "MEMPROSES..." : "YA, CABUT STATUS PRO SAYA"}
+                         </button>
+                         <button onClick={() => setCancelStep(0)} className="w-full py-3 text-xs font-bold text-text-muted hover:text-text-main">Jangan, Kembali Saja</button>
+                      </div>
+                   </div>
+                 )}
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -171,10 +246,10 @@ export const ProPage = ({ user, isPro, onUpgrade }: ProPageProps) => {
                 <Sparkles size={12} /> Menuju OSN 2026
               </motion.div>
               <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-[0.9]">
-                Buka Potensi <span className="text-accent underline decoration-gold/50 decoration-4 underline-offset-8">Maksimalmu</span>
+                Berlangganan <span className="text-accent underline decoration-gold/50 decoration-4 underline-offset-8">Dyfalogy Pro</span>
               </h1>
               <p className="text-text-muted text-lg max-w-2xl mx-auto leading-relaxed">
-                Dapatkan akses ke instrumen belajar tercanggih untuk persiapan OSN Biologi. Cukup sekali bayar, selamanya pro.
+                Dapatkan akses ke instrumen belajar tercanggih untuk persiapan OSN Biologi. Tingkatkan peluang medalimu hari ini.
               </p>
             </div>
 
@@ -205,28 +280,27 @@ export const ProPage = ({ user, isPro, onUpgrade }: ProPageProps) => {
                   </div>
                   <div className="relative z-10 text-center space-y-6">
                     <div>
-                      <div className="text-[10px] font-black text-accent uppercase tracking-widest mb-1">PROMO TERBATAS</div>
+                      <div className="text-[10px] font-black text-accent uppercase tracking-widest mb-1">LANGGANAN BULANAN</div>
                       <div className="flex items-center justify-center gap-2">
-                        <span className="text-xl text-white/40 line-through">Rp 50.000</span>
                         <div className="text-5xl font-black flex items-start gap-1">
-                          <span className="text-sm mt-2">Rp</span> 5.000
+                          <span className="text-sm mt-2">Rp</span> 5.000 <span className="text-xs text-white/50 self-end mb-2 ml-1">/ Bln</span>
                         </div>
                       </div>
-                      <div className="text-[10px] text-white/50 mt-2 font-bold italic">*Hanya untuk 100 pendaftar pertama hari ini</div>
+                      <div className="text-[10px] text-white/50 mt-2 font-bold italic">*Bebas batal kapanpun</div>
                     </div>
 
                     <div className="space-y-3">
                       <div className="flex items-center gap-3 text-xs font-medium">
                         <CheckCircle2 size={14} className="text-accent" />
-                        Akses Selamanya
+                        AI Khusus Persiapan OSP
                       </div>
                       <div className="flex items-center gap-3 text-xs font-medium">
                         <CheckCircle2 size={14} className="text-accent" />
-                        Eksklusif Dyfa AI Pro
+                        Akses Full Forum Diskusi
                       </div>
                       <div className="flex items-center gap-3 text-xs font-medium">
                         <CheckCircle2 size={14} className="text-accent" />
-                        Sertifikat Digital (Bonus)
+                        Statistik Grafik Performa
                       </div>
                     </div>
 

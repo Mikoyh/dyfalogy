@@ -15,16 +15,24 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Initialize Firebase Admin (Optional: only if Service Account is provided)
+  // Initialize Firebase Admin
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     try {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
       });
-      console.log("Firebase Admin initialized successfully.");
+      console.log("Firebase Admin initialized with Service Account.");
     } catch (err) {
-      console.error("Failed to initialize Firebase Admin:", err);
+      console.error("Failed to initialize Firebase Admin with secret:", err);
+    }
+  } else if (!admin.apps.length) {
+    try {
+      // Try initializing with Default Credentials (for Cloud Run/App Engine)
+      admin.initializeApp();
+      console.log("Firebase Admin initialized with Default Credentials.");
+    } catch (err) {
+      console.error("Failed to initialize Firebase Admin with default credentials:", err);
     }
   }
 
@@ -32,7 +40,7 @@ async function startServer() {
   const snap = new midtransClient.Snap({
     isProduction: false, // Set to true for production later
     serverKey: process.env.MIDTRANS_SERVER_KEY || 'SB-Mid-server-placeholder',
-    clientKey: process.env.MIDTRANS_CLIENT_KEY || 'SB-Mid-client-placeholder'
+    clientKey: process.env.VITE_MIDTRANS_CLIENT_KEY || 'SB-Mid-client-placeholder'
   });
 
   app.use(express.json());
@@ -64,7 +72,7 @@ async function startServer() {
             "id": "pro_model",
             "price": 5000,
             "quantity": 1,
-            "name": "Dyfalogy Pro Lifetime"
+            "name": "Dyfalogy Pro Subscription (1 Month)"
           }
         ],
         "callbacks": {
@@ -118,16 +126,46 @@ async function startServer() {
     }
   });
 
+  // 3. Cancel Subscription (Test/Demo Endpoint)
+  app.post("/api/cancel-subscription", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "User ID required" });
+
+      if (admin.apps.length) {
+        const db = admin.firestore();
+        await db.collection('users').doc(userId).update({
+          isPro: false,
+          proUntil: null,
+          subscriptionId: null
+        });
+        console.log(`User ${userId} subscription cancelled via API.`);
+        res.json({ message: "Subscription cancelled successfully" });
+      } else {
+        console.error("Cancellation failed: Firebase Admin not initialized.");
+        res.status(500).json({ error: "Firebase Admin not initialized. Please set FIREBASE_SERVICE_ACCOUNT in Secrets." });
+      }
+    } catch (error: any) {
+      console.error("Cancellation error:", error);
+      res.status(500).json({ error: error.message || "Failed to update Firestore" });
+    }
+  });
+
   async function updateUserDetails(userId: string) {
     if (!admin.apps.length) return;
     
     try {
       const db = admin.firestore();
+      const proUntil = new Date();
+      proUntil.setDate(proUntil.getDate() + 30); // 30 days subscription
+
       await db.collection('users').doc(userId).update({
         isPro: true,
-        proSince: admin.firestore.FieldValue.serverTimestamp()
+        proSince: admin.firestore.FieldValue.serverTimestamp(),
+        proUntil: admin.firestore.Timestamp.fromDate(proUntil),
+        subscriptionId: `SUB-${Date.now()}`
       });
-      console.log(`User ${userId} upgraded to Pro via Webhook.`);
+      console.log(`User ${userId} upgraded to Pro for 30 days via Webhook.`);
     } catch (err) {
       console.error(`Failed to update user ${userId}:`, err);
     }

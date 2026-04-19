@@ -12,7 +12,8 @@ import {
   User, 
   Zap, 
   LifeBuoy,
-  Trophy
+  Trophy,
+  Calculator
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { LESSONS, Lesson } from '../constants/data';
@@ -65,27 +66,47 @@ export const Sidebar = memo(({
       items: [
         { id: 'profile', icon: User, label: 'Profil Saya' },
         { id: 'pro-model', icon: Trophy, label: 'Dyfalogy Pro' },
+        { id: 'calculator', icon: Calculator, label: 'Kalkulator Sains' },
         { id: 'strategies', icon: Zap, label: 'Strategi Belajar' },
         { id: 'customer-service', icon: LifeBuoy, label: 'Pusat Bantuan' },
       ]
     }
   ];
 
-  const content = (
-    <div className="w-[280px] h-full glass-sidebar text-white flex flex-col p-6 shrink-0 relative overflow-y-auto no-scrollbar">
-      <button 
-        onClick={onClose}
-        className="lg:hidden absolute top-6 right-6 p-1 text-white/50 hover:text-white transition-colors"
-      >
-        <X size={20} />
-      </button>
+      {/* Secret Entrance Logic */}
+      const logoPressTimer = React.useRef<NodeJS.Timeout | null>(null);
+      const handleLogoPressStart = () => {
+        logoPressTimer.current = setTimeout(() => {
+          setActiveTab('kira');
+          onClose();
+        }, 5000);
+      };
+      const handleLogoPressEnd = () => {
+        if (logoPressTimer.current) clearTimeout(logoPressTimer.current);
+      };
 
-      <div className="text-2xl font-extrabold tracking-tighter text-[#74C69D] mb-8 flex items-center gap-3">
-        <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-xl shadow-accent/30">
-          <Brain size={22} />
-        </div>
-        DYFALOGY
-      </div>
+      const content = (
+        <div className="w-[280px] h-full glass-sidebar text-white flex flex-col p-6 shrink-0 relative overflow-y-auto no-scrollbar">
+          <button 
+            onClick={onClose}
+            className="lg:hidden absolute top-6 right-6 p-1 text-white/50 hover:text-white transition-colors"
+          >
+            <X size={20} />
+          </button>
+    
+          <div 
+            onMouseDown={handleLogoPressStart}
+            onMouseUp={handleLogoPressEnd}
+            onMouseLeave={handleLogoPressEnd}
+            onTouchStart={handleLogoPressStart}
+            onTouchEnd={handleLogoPressEnd}
+            className="text-2xl font-extrabold tracking-tighter text-[#74C69D] mb-8 flex items-center gap-3 cursor-pointer select-none active:scale-95 transition-transform"
+          >
+            <div className="w-10 h-10 bg-accent rounded-xl flex items-center justify-center shadow-xl shadow-accent/30">
+              <Brain size={22} />
+            </div>
+            DYFALOGY
+          </div>
 
       <div className="mb-6 relative group lg:hidden">
         <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-accent transition-colors" />

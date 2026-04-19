@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { motion } from 'motion/react';
 import { Brain, Star } from 'lucide-react';
 
-export const LandingPage = memo(({ onLogin }: { onLogin: () => void }) => {
+export const LandingPage = memo(({ onLogin, onPortfolioClick }: { onLogin: () => void, onPortfolioClick: () => void }) => {
   return (
     <div className="min-h-screen bg-bg relative overflow-hidden flex flex-col items-center justify-center p-6 bg-gradient-to-b from-bg to-accent/5">
       <div className="atmosphere pointer-events-none" />
@@ -88,6 +88,24 @@ export const LandingPage = memo(({ onLogin }: { onLogin: () => void }) => {
            ))}
         </div>
       </motion.div>
+
+      {/* Creative Footer */}
+      <motion.footer 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.6 }}
+        className="absolute bottom-8 left-0 right-0 z-20 flex flex-col items-center gap-2 group cursor-default"
+      >
+        <p className="text-[10px] font-black tracking-[0.3em] uppercase text-text-muted">
+          DIBUAT OLEH 
+          <button 
+            onClick={onPortfolioClick}
+            className="ml-2 text-accent hover:text-[#1A4331] transition-colors border-b border-accent/20 hover:border-accent"
+          >
+            DEPALEN
+          </button>
+        </p>
+        <div className="h-[1px] w-8 bg-accent/20 group-hover:w-16 transition-all" />
+      </motion.footer>
 
     </div>
   );

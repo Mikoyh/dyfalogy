@@ -40,7 +40,9 @@ import {
   Image as ImageIcon,
   Paperclip,
   Trash2,
-  CheckCheck
+  CheckCheck,
+  Skull,
+  Calculator
 } from 'lucide-react';
 import { LESSONS, STUDY_STRATEGIES, BADGES, Lesson, Badge, CATEGORIES } from './constants/data';
 import ReactMarkdown from 'react-markdown';
@@ -64,6 +66,9 @@ import { Conversation } from './components/ChatSidebar';
 const Flashcards = React.lazy(() => import('./components/Flashcards').then(module => ({ default: module.Flashcards })));
 const Analytics = React.lazy(() => import('./components/Analytics').then(module => ({ default: module.Analytics })));
 const ProPage = React.lazy(() => import('./components/ProPage').then(module => ({ default: module.ProPage })));
+const DeathNotePage = React.lazy(() => import('./components/DeathNotePage').then(module => ({ default: module.DeathNotePage })));
+const ScientificCalculator = React.lazy(() => import('./components/ScientificCalculator').then(module => ({ default: module.ScientificCalculator })));
+const PortfolioPage = React.lazy(() => import('./components/PortfolioPage').then(module => ({ default: module.PortfolioPage })));
 
 const ConfirmationModal = ({ 
   isOpen, 
@@ -152,7 +157,7 @@ const ReactionButton = ({ count, icon, active, onClick }: { count: number, icon:
 
 export default function App() {
   const [user, loading] = useAuthState(auth);
-  const { userData, addXp, updateTopicMastery, reviewFlashcard, isPro, upgradeToPro } = useGamification(user);
+  const { userData, addXp, updateTopicMastery, reviewFlashcard, isPro, upgradeToPro, cancelSubscription } = useGamification(user);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -502,6 +507,14 @@ export default function App() {
       return;
     }
 
+    // Secret Search Logic
+    if (q.toLowerCase() === 'kira') {
+      setActiveTab('kira');
+      setSearchQuery('');
+      setShowSearchResults(false);
+      return;
+    }
+
     searchTimeoutRef.current = setTimeout(() => {
       const filteredLessons = LESSONS.filter(l => 
         l.title.toLowerCase().includes(q.toLowerCase()) || 
@@ -594,7 +607,7 @@ export default function App() {
     }
     return (
       <Suspense fallback={<div className="h-screen flex items-center justify-center bg-bg"><Brain className="animate-pulse text-accent" size={48} /></div>}>
-        <LandingPage onLogin={() => setShowAuth(true)} />
+        <LandingPage onLogin={() => setShowAuth(true)} onPortfolioClick={() => setActiveTab('depalen-portfolio')} />
       </Suspense>
     );
   }
@@ -752,7 +765,46 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.95 }}
               >
                 <Suspense fallback={<div className="h-full flex items-center justify-center"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
-                  <ProPage user={userData} isPro={isPro} onUpgrade={upgradeToPro} />
+                  <ProPage 
+                    user={user} 
+                    userData={userData}
+                    isPro={isPro} 
+                    onUpgrade={upgradeToPro} 
+                    onCancelSubscription={async () => {
+                      const success = await cancelSubscription();
+                      if (success) {
+                        alert("Status Pro kamu telah dicabut. Kamu bisa beli lagi untuk ngetes terus.");
+                      }
+                    }}
+                  />
+                </Suspense>
+              </motion.div>
+            )}
+
+            {activeTab === 'kira' && (
+              <motion.div 
+                key="kira"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[60] bg-black"
+              >
+                <Suspense fallback={<div className="h-screen bg-black flex items-center justify-center"><Skull className="animate-pulse text-red-600" size={48} /></div>}>
+                  <DeathNotePage />
+                </Suspense>
+              </motion.div>
+            )}
+
+            {activeTab === 'depalen-portfolio' && (
+              <motion.div 
+                key="depalen-portfolio"
+                initial={{ opacity: 0, scale: 1.1 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="fixed inset-0 z-[100] bg-bg overflow-y-auto"
+              >
+                <Suspense fallback={<div className="h-screen flex items-center justify-center"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
+                  <PortfolioPage onBack={() => setActiveTab('dashboard')} />
                 </Suspense>
               </motion.div>
             )}
@@ -1226,6 +1278,20 @@ export default function App() {
               >
                 <Suspense fallback={<div className="h-full flex items-center justify-center"><LifeBuoy className="animate-pulse text-accent" size={48} /></div>}>
                   <CustomerService user={userData} />
+                </Suspense>
+              </motion.div>
+            )}
+
+            {activeTab === 'calculator' && (
+              <motion.div 
+                key="calculator"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="max-w-4xl mx-auto"
+              >
+                <Suspense fallback={<div className="h-full flex items-center justify-center"><Calculator className="animate-pulse text-accent" size={48} /></div>}>
+                  <ScientificCalculator />
                 </Suspense>
               </motion.div>
             )}

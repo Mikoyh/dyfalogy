@@ -142,6 +142,27 @@ export const useGamification = (user: any) => {
     updateTopicMastery,
     createFlashcard,
     reviewFlashcard,
-    upgradeToPro
+    upgradeToPro,
+    cancelSubscription: async () => {
+      if (!user) return;
+      try {
+        const response = await fetch('/api/cancel-subscription', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.uid })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Cancellation Error:", errorData.error);
+          throw new Error(errorData.error || "Gagal membatalkan");
+        }
+        return true;
+      } catch (err: any) {
+        console.error(err);
+        alert(`Gagal membatalkan: ${err.message}`);
+        return false;
+      }
+    }
   };
 };

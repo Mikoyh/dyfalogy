@@ -19,7 +19,10 @@
         "dailyStreak": { "type": "integer" },
         "lastActive": { "type": "string", "format": "date-time" },
         "badges": { "type": "array", "items": { "type": "string" } },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isPro": { "type": "boolean" },
+        "proUntil": { "type": "string", "format": "date-time" },
+        "subscriptionId": { "type": "string" }
       },
       "required": ["uid", "email"]
     },
