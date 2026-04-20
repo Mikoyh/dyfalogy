@@ -61,7 +61,7 @@ export const DeathNotePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#111] text-[#777] relative flex flex-col items-center justify-center p-6 overflow-hidden death-note-theme selection:bg-zinc-800 selection:text-zinc-500">
+    <div className="min-h-screen bg-[#050505] text-[#555] relative flex flex-col items-center py-12 px-6 overflow-y-auto death-note-theme selection:bg-zinc-900 selection:text-zinc-600">
       {/* Background Audio - Kira Theme */}
       {isAudioLoaded && (
         <div className="absolute inset-0 pointer-events-none opacity-0">
@@ -76,11 +76,23 @@ export const DeathNotePage = () => {
         </div>
       )}
 
-      {/* Fog Layers - The Mist of Judgement */}
-      <div className="absolute inset-0 pointer-events-none z-[5] overflow-hidden opacity-40">
-        <div className="fog-layer fog-layer-1" />
-        <div className="fog-layer fog-layer-2" />
-        <div className="fog-layer fog-layer-3" />
+      {/* Realistic Fog/Smoke & Particles */}
+      <div className="fixed inset-0 pointer-events-none z-[5] overflow-hidden opacity-30">
+        <div className="smoke-container">
+          <div className="smoke-layer smoke-1" />
+          <div className="smoke-layer smoke-2" />
+          <div className="smoke-layer smoke-3" />
+        </div>
+        <div className="particles-container">
+          {[...Array(20)].map((_, i) => (
+            <div key={i} className={`particle particle-${i % 5}`} style={{ 
+              left: `${Math.random() * 100}%`, 
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 10}s`,
+              animationDuration: `${10 + Math.random() * 20}s`
+            }} />
+          ))}
+        </div>
       </div>
 
       <AnimatePresence>
@@ -89,32 +101,39 @@ export const DeathNotePage = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-[#111] flex flex-col items-center justify-center space-y-12 p-8 text-center"
+            className="fixed inset-0 z-[200] bg-[#050505] flex flex-col items-center py-20 px-8 text-center overflow-y-auto"
           >
-            <div className="space-y-4 max-w-2xl mx-auto py-12 px-6 border-y border-zinc-800 relative overflow-hidden bg-zinc-900/20">
-               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-zinc-800/20 to-transparent animate-shimmer pointer-events-none" />
-               <h2 className="text-4xl lg:text-5xl font-black uppercase tracking-widest gothic-font text-zinc-500">
+            <div className="flex-grow flex flex-col items-center justify-center w-full max-w-2xl mx-auto relative z-10">
+              <div className="space-y-6 w-full py-16 px-6 border-y border-zinc-900 relative overflow-hidden bg-zinc-950/40 backdrop-blur-sm">
+               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-zinc-800/10 to-transparent animate-shimmer pointer-events-none" />
+               <motion.h2 
+                 animate={{ opacity: [0.8, 1, 0.8] }}
+                 transition={{ repeat: Infinity, duration: 4 }}
+                 className="text-4xl lg:text-6xl font-black uppercase tracking-[0.3em] gothic-font text-zinc-600"
+               >
                  The Legend of Kira
-               </h2>
-               <h3 className="text-xl lg:text-2xl font-bold text-zinc-700 italic tracking-widest">
+               </motion.h2>
+               <h3 className="text-xl lg:text-2xl font-bold text-zinc-800 italic tracking-[0.5em] uppercase">
                  The Saviour
                </h3>
-               <div className="h-px w-24 bg-zinc-800 mx-auto my-6" />
-               <p className="text-xs lg:text-sm font-mono tracking-[0.2em] leading-loose text-zinc-600 opacity-60">
-                 Criminals worldwide<br/>
-                 Because Kira is among us again<br/>
-                 He is the one who will tolerate no wickedness<br/>
-                 Our messenger from hell<br/>
-                 Only those who believe in his existence and return
+               <div className="h-px w-24 bg-zinc-900 mx-auto my-8" />
+               <p className="text-[10px] lg:text-xs font-mono tracking-[0.3em] leading-loose text-zinc-700 opacity-80 max-w-lg mx-auto">
+                 CRIMINALS WORLDWIDE HAVE BEEN WARNED.<br/>
+                 BECAUSE KIRA IS AMONG US AGAIN.<br/>
+                 HE IS THE ONE WHO WILL TOLERATE NO WICKEDNESS.<br/>
+                 OUR MESSENGER FROM THE ABYSS.<br/>
+                 ONLY THOSE WHO BELIEVE SHALL SURVIVE THE JUDGEMENT.
                </p>
             </div>
             
             <button 
               onClick={enterWorld}
-              className="px-12 py-4 border border-zinc-800 text-zinc-500 font-black uppercase tracking-[0.5em] text-sm hover:bg-zinc-800 hover:text-zinc-300 transition-all hover:tracking-[0.6em] relative group bg-transparent"
+              className="mt-12 px-16 py-5 border border-zinc-800 text-zinc-600 font-black uppercase tracking-[0.6em] text-sm hover:bg-zinc-900 hover:text-zinc-400 transition-all hover:tracking-[0.8em] relative group bg-black/50 backdrop-blur-md"
             >
-              <span className="relative z-10">ENTER THE NEW WORLD</span>
+              <span className="relative z-10 transition-all duration-500 group-hover:scale-110 block">ENTER THE NEW WORLD</span>
+              <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-[0.02] transition-opacity" />
             </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -289,38 +308,70 @@ export const DeathNotePage = () => {
         }
 
         .death-note-theme {
-          background-color: #0c0c0c;
-          filter: grayscale(1) contrast(0.9);
+          background-color: #030303;
+          filter: grayscale(1) contrast(1.2) brightness(0.8);
+          background-image: 
+            radial-gradient(circle at 50% 50%, rgba(30, 30, 30, 0.4) 0%, transparent 100%),
+            url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
         }
 
-        .fog-layer {
+        .smoke-container {
           position: absolute;
-          top: 0;
-          left: 0;
-          width: 200%;
+          width: 100%;
           height: 100%;
-          background: radial-gradient(circle at 50% 50%, rgba(100, 100, 100, 0.4) 0%, transparent 70%);
-          filter: blur(80px);
-          animation: fog-move 20s linear infinite;
         }
 
-        .fog-layer-1 { opacity: 0.3; animation-duration: 30s; }
-        .fog-layer-2 { opacity: 0.2; animation-duration: 45s; animation-direction: reverse; }
-        .fog-layer-3 { opacity: 0.1; animation-duration: 60s; }
+        .smoke-layer {
+          position: absolute;
+          width: 200%;
+          height: 200%;
+          top: -50%;
+          left: -50%;
+          background: radial-gradient(circle at center, rgba(80, 80, 80, 0.1) 0%, transparent 60%);
+          filter: blur(60px);
+          animation: smoke-drift linear infinite;
+        }
 
-        @keyframes fog-move {
-          0% { transform: translateX(-50%) translateY(0%); }
-          50% { transform: translateX(0%) translateY(10%); }
-          100% { transform: translateX(-50%) translateY(0%); }
+        .smoke-1 { animation-duration: 40s; opacity: 0.15; }
+        .smoke-2 { animation-duration: 55s; animation-direction: reverse; opacity: 0.1; }
+        .smoke-3 { animation-duration: 70s; opacity: 0.05; }
+        
+        .particles-container {
+          position: absolute;
+          inset: 0;
+        }
+
+        .particle {
+          position: absolute;
+          width: 2px;
+          height: 2px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 50%;
+          animation: particle-float linear infinite;
+        }
+
+        .particle-1 { width: 3px; height: 3px; background: rgba(100, 100, 100, 0.3); }
+        .particle-2 { width: 1px; height: 1px; background: rgba(200, 200, 200, 0.1); }
+        .particle-3 { width: 2px; height: 2px; background: rgba(150, 150, 150, 0.4); filter: blur(1px); }
+
+        @keyframes particle-float {
+          0% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+          10% { opacity: 0.5; }
+          90% { opacity: 0.5; }
+          100% { transform: translate(100px, -200px) rotate(360deg); opacity: 0; }
+        }
+
+        @keyframes smoke-drift {
+          0% { transform: translate(0, 0) rotate(0deg); }
+          50% { transform: translate(-10%, 10%) rotate(5deg); }
+          100% { transform: translate(0, 0) rotate(0deg); }
         }
 
         .glitch-pixels {
           background-image: 
-            radial-gradient(circle, #333 1px, transparent 1px),
-            radial-gradient(circle, #333 1px, transparent 1px);
-          background-size: 50px 50px;
-          background-position: 0 0, 25px 25px;
-          filter: blur(10px) contrast(100);
+            radial-gradient(circle, #222 1px, transparent 1px);
+          background-size: 30px 30px;
+          filter: blur(5px) contrast(50);
         }
 
         .animate-blink {
@@ -373,7 +424,7 @@ export const DeathNotePage = () => {
           position: absolute;
           inset: 0;
           background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-          opacity: 0.05;
+          opacity: 0.1;
           mix-blend-mode: overlay;
         }
       `}</style>
