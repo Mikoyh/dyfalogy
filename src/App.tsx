@@ -71,6 +71,7 @@ const ProPage = React.lazy(() => import('./components/ProPage').then(module => (
 const DeathNotePage = React.lazy(() => import('./components/DeathNotePage').then(module => ({ default: module.DeathNotePage })));
 const ScientificCalculator = React.lazy(() => import('./components/ScientificCalculator').then(module => ({ default: module.ScientificCalculator })));
 const PortfolioPage = React.lazy(() => import('./components/PortfolioPage').then(module => ({ default: module.PortfolioPage })));
+const SecretScamPage = React.lazy(() => import('./components/SecretScamPage').then(module => ({ default: module.SecretScamPage })));
 
 const ConfirmationModal = ({ 
   isOpen, 
@@ -517,6 +518,13 @@ export default function App() {
       return;
     }
 
+    if (q.toLowerCase() === 'judol') {
+      setActiveTab('scam-simulator');
+      setSearchQuery('');
+      setShowSearchResults(false);
+      return;
+    }
+
     searchTimeoutRef.current = setTimeout(() => {
       const filteredLessons = LESSONS.filter(l => 
         l.title.toLowerCase().includes(q.toLowerCase()) || 
@@ -801,6 +809,20 @@ export default function App() {
               >
                 <Suspense fallback={<div className="h-screen bg-black flex items-center justify-center"><Skull className="animate-pulse text-red-600" size={48} /></div>}>
                   <DeathNotePage />
+                </Suspense>
+              </motion.div>
+            )}
+
+            {activeTab === 'scam-simulator' && (
+              <motion.div 
+                key="scam-simulator"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] bg-black overflow-y-auto"
+              >
+                <Suspense fallback={<div className="h-screen bg-black flex items-center justify-center"><Sparkles className="animate-pulse text-yellow-500" size={48} /></div>}>
+                  <SecretScamPage onClose={() => setActiveTab('dashboard')} />
                 </Suspense>
               </motion.div>
             )}
