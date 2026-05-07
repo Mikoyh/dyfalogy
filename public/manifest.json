@@ -1,0 +1,16 @@
+{
+  "name": "dyfalogy",
+  "short_name": "dyfalogy",
+  "description": "Platform belajar OSP Biologi interaktif dengan materi silabus, quiz AI, sistem level, dan asisten AI.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5816/5816049.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

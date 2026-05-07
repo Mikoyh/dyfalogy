@@ -176,6 +176,67 @@ export default function App() {
   const [quizConfig, setQuizConfig] = useState({ count: 10, timer: 60 });
   const [activeContextMenu, setActiveContextMenu] = useState<string | null>(null);
   
+  // PWA & Shake Detection
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPopup, setShowInstallPopup] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Shake Detection
+    let lastX: number | null = null, lastY: number | null = null, lastZ: number | null = null;
+    let threshold = 15;
+    let lastTime = 0;
+
+    const handleMotion = (event: DeviceMotionEvent) => {
+      const acceleration = event.accelerationIncludingGravity;
+      if (!acceleration) return;
+
+      const currentTime = Date.now();
+      if ((currentTime - lastTime) > 100) {
+        lastTime = currentTime;
+        let { x, y, z } = acceleration;
+        if (x !== null && y !== null && z !== null) {
+          if (lastX !== null && lastY !== null && lastZ !== null) {
+            let speed = Math.abs(x + y + z - lastX - lastY - lastZ);
+            if (speed > threshold) {
+              if (deferredPrompt) {
+                setShowInstallPopup(true);
+              }
+            }
+          }
+          lastX = x;
+          lastY = y;
+          lastZ = z;
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined' && 'DeviceMotionEvent' in window) {
+      window.addEventListener('devicemotion', handleMotion);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('devicemotion', handleMotion);
+    };
+  }, [deferredPrompt]);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+    setShowInstallPopup(false);
+  };
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -632,49 +693,80 @@ export default function App() {
 
   return (
     <div className="h-screen flex overflow-hidden bg-bg relative">
-      <div className="atmosphere" />      <Suspense fallback={<div className="h-full w-[280px] bg-sidebar animate-pulse shrink-0" />}>
-        <Sidebar 
-          activeTab={activeTab} 
-          setActiveTab={(tab) => {
-            setActiveTab(tab);
-            setShowSearchResults(false);
-          }} 
-          isOpen={isSidebarOpen} 
-          onClose={() => setIsSidebarOpen(false)}
-          quizHistory={quizHistory}
-          onSelectLesson={setSelectedLesson}
-          onSearch={handleSearch}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          startListening={startListening}
-          isListening={isListening}
-        />
-      </Suspense>
+      <div className="atmosphere" />
       
-      <div className="flex-1 flex flex-col min-w-0 border-r border-border relative z-10">
-        <Suspense fallback={<div className="h-16 bg-white/20 animate-pulse" />}>
-          <Navbar 
-            user={userData || user} 
-            onLogout={logout} 
+      {/* Install Popup Triggered by Shake */}
+      <AnimatePresence>
+        {showInstallPopup && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowInstallPopup(false)} />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm glass-card rounded-3xl p-8 border border-white/50 shadow-2xl text-center space-y-6"
+            >
+              <div className="w-20 h-20 bg-accent/10 rounded-full flex items-center justify-center mx-auto">
+                <Sparkles className="text-accent" size={40} />
+              </div>
+              <h3 className="text-xl font-black">Tambahkan ke Layar Utama?</h3>
+              <p className="text-sm text-text-muted">Kamu baru saja menggoyang perangkatmu! Instal aplikasi ini untuk akses lebih cepat dan tampilan layar penuh.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setShowInstallPopup(false)} className="flex-1 py-3 rounded-xl font-bold bg-white/50">Tutup</button>
+                <button onClick={handleInstallClick} className="flex-1 py-3 bg-accent text-white rounded-xl font-bold">Instal Sekarang</button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {!isQuizActive && (
+        <Suspense fallback={<div className="h-full w-[280px] bg-sidebar animate-pulse shrink-0" />}>
+          <Sidebar 
             activeTab={activeTab} 
-            onToggleAi={() => activeTab !== 'chat' && setShowAiPanel(!showAiPanel)} 
-            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-            onProfileClick={() => {
-              setActiveTab('profile');
+            setActiveTab={(tab) => {
+              setActiveTab(tab);
               setShowSearchResults(false);
-            }}
+            }} 
+            isOpen={isSidebarOpen} 
+            onClose={() => setIsSidebarOpen(false)}
+            quizHistory={quizHistory}
+            onSelectLesson={setSelectedLesson}
             onSearch={handleSearch}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            isListening={isListening}
             startListening={startListening}
+            isListening={isListening}
           />
         </Suspense>
+      )}
+      
+      <div className="flex-1 flex flex-col min-w-0 border-r border-border relative z-10">
+        {!isQuizActive && (
+          <Suspense fallback={<div className="h-16 bg-white/20 animate-pulse" />}>
+            <Navbar 
+              user={userData || user} 
+              onLogout={logout} 
+              activeTab={activeTab} 
+              onToggleAi={() => activeTab !== 'chat' && setShowAiPanel(!showAiPanel)} 
+              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+              onProfileClick={() => {
+                setActiveTab('profile');
+                setShowSearchResults(false);
+              }}
+              onSearch={handleSearch}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              isListening={isListening}
+              startListening={startListening}
+            />
+          </Suspense>
+        )}
 
         
         <main className={cn(
           "flex-1 relative min-w-0",
-          activeTab === 'chat' ? "h-full overflow-hidden p-0" : "overflow-y-auto p-4 md:p-6"
+          (activeTab === 'chat' || isQuizActive) ? "h-full overflow-hidden p-0" : "overflow-y-auto p-4 md:p-6"
         )}>
           <AnimatePresence>
             {showSearchResults && (
@@ -1521,7 +1613,7 @@ export default function App() {
 
       {/* AI Panel (Persistent on Desktop, Toggleable on Mobile) */}
       <AnimatePresence>
-        {activeTab !== 'chat' && showAiPanel && (
+        {activeTab !== 'chat' && showAiPanel && !isQuizActive && (
           <aside className={cn(
             "w-[340px] flex flex-col shrink-0 border-l border-white/20 transition-all duration-500 z-[60] shadow-2xl",
             "fixed inset-y-0 right-0 xl:static chat-gradient"
