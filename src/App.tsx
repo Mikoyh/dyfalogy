@@ -1102,6 +1102,7 @@ export default function App() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
+                className={isQuizActive ? "h-full w-full overflow-hidden" : ""}
               >
                 {isQuizActive ? (
                   <Suspense fallback={<div className="h-full flex items-center justify-center"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
