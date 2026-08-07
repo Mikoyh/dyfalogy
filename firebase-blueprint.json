@@ -24,7 +24,7 @@
         "proUntil": { "type": "string", "format": "date-time" },
         "subscriptionId": { "type": "string" }
       },
-      "required": ["uid", "email"]
+      "required": ["uid"]
     },
     "Flashcard": {
       "title": "Flashcard",
@@ -124,6 +124,18 @@
         "participants": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["content", "participants"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "User support or bug report feedback.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "content"]
     }
   },
   "firestore": {
@@ -158,6 +170,10 @@
     "/users/{userId}/flashcards/{cardId}": {
       "schema": "Flashcard",
       "description": "User's flashcards for spaced repetition"
+    },
+    "/feedback/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "User feedback or feature requests"
     }
   }
 }

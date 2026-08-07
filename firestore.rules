@@ -9,14 +9,17 @@ service cloud.firestore {
     }
 
     // ==========================================
+    // Connection Test
+    // ==========================================
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // ==========================================
     // Helper Functions (The Primitives)
     // ==========================================
     function isSignedIn() {
       return request.auth != null;
-    }
-
-    function isVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
     }
 
     function isOwner(userId) {
@@ -39,22 +42,21 @@ service cloud.firestore {
     // 1. USERS COLLECTION
     // ==========================================
     function isValidUser(data) {
-      // Allow optional fields like stats and isPro
-      return data.keys().hasAll(['uid', 'email']) &&
-             data.uid == request.auth.uid &&
-             data.email is string && data.email.size() <= 256;
+      return (!('uid' in data) || data.uid == request.auth.uid) &&
+             (!('email' in data) || data.email == null || (data.email is string && data.email.size() <= 256));
     }
 
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isOwner(userId) && isValidUser(incoming());
+      allow create, update: if isOwner(userId) && isValidUser(incoming());
+      allow delete: if isOwner(userId);
 
       // Subcollections
       match /chatHistory/{msgId} {
         allow read, write: if isOwner(userId);
       }
       match /quizResults/{resId} {
-        allow read, create: if isOwner(userId);
+        allow read, write: if isOwner(userId);
       }
       match /flashcards/{cardId} {
         allow read, write: if isOwner(userId);
@@ -77,19 +79,16 @@ service cloud.firestore {
       allow get: if isSignedIn() && request.auth.uid in existing().participants;
       allow list: if isSignedIn() && request.auth.uid in resource.data.participants;
       
-      allow create: if isSignedIn() && isValidConversation(incoming()) && 
-                    incoming().createdAt == request.time;
+      allow create: if isSignedIn() && isValidConversation(incoming());
       
-      allow update: if isSignedIn() && request.auth.uid in existing().participants &&
-                    isValidConversation(incoming()) &&
-                    incoming().updatedAt == request.time &&
-                    incoming().diff(existing()).affectedKeys().hasAny(['lastMessage', 'updatedAt', 'title']);
+      allow update: if isSignedIn() && request.auth.uid in existing().participants;
+
+      allow delete: if isSignedIn() && request.auth.uid in existing().participants;
 
       match /messages/{msgId} {
-        // Use a simpler check for list/read to avoid get() costs where possible
-        allow read, list: if isSignedIn(); 
-        allow create: if isSignedIn() && 
-                      incoming().timestamp == request.time;
+        allow read, list, get: if isSignedIn(); 
+        allow create: if isSignedIn();
+        allow update, delete: if isSignedIn();
       }
     }
 
@@ -104,29 +103,25 @@ service cloud.firestore {
     }
 
     match /forumTopics/{topicId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidTopic(incoming()) && 
-                    incoming().createdAt == request.time;
-      allow update: if isSignedIn() && (
-        // Author update
-        (existing().authorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['title', 'content', 'updatedAt', 'isPromoted'])) ||
-        // Anyone can update replyCount or reactions
-        (incoming().diff(existing()).affectedKeys().hasAny(['replyCount', 'reactions']))
-      );
+      allow read, get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidTopic(incoming());
+      allow update: if isSignedIn();
       allow delete: if isSignedIn() && existing().authorId == request.auth.uid;
 
       match /replies/{replyId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn() && 
-                      incoming().authorId == request.auth.uid &&
-                      incoming().content is string && incoming().content.size() <= 10000 &&
-                      incoming().createdAt == request.time;
-        allow update: if isSignedIn() && (
-          (existing().authorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasAny(['content', 'updatedAt'])) ||
-          (incoming().diff(existing()).affectedKeys().hasAny(['reactions']))
-        );
+        allow read, get, list: if isSignedIn();
+        allow create: if isSignedIn() && incoming().authorId == request.auth.uid;
+        allow update: if isSignedIn();
         allow delete: if isSignedIn() && existing().authorId == request.auth.uid;
       }
+    }
+
+    // ==========================================
+    // 4. FEEDBACK / SUPPORT
+    // ==========================================
+    match /feedback/{feedbackId} {
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }
