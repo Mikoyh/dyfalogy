@@ -8,8 +8,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Safe directory resolution for CJS / ESM
+const currentDir = typeof __dirname !== 'undefined' ? __dirname : process.cwd();
 
 async function startServer() {
   const app = express();
