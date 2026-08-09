@@ -58,7 +58,7 @@ export const Sidebar = memo(({
       label: 'Interaksi',
       items: [
         { id: 'forum', icon: Users, label: 'Forum Komunitas' },
-        { id: 'chat', icon: MessageSquare, label: 'Dyfa AI' },
+        { id: 'chat', icon: MessageSquare, label: 'Obrolan' },
       ]
     },
     {

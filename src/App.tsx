@@ -169,6 +169,7 @@ export default function App() {
   const [inputMessage, setInputMessage] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
+  const [showMobileChatSidebar, setShowMobileChatSidebar] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
@@ -447,9 +448,42 @@ export default function App() {
     }
   }, [user, inputMessage, selectedImage, activeChatId, chatMessages, conversations]);
 
+  const handlePinChat = useCallback(async (id: string, currentPinned: boolean) => {
+    try {
+      await updateDoc(doc(db, 'conversations', id), {
+        pinned: !currentPinned
+      });
+    } catch (err) {
+      console.error("Error toggling pin:", err);
+    }
+  }, []);
+
+  const handleDeleteChat = useCallback(async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'conversations', id));
+      if (activeChatId === id) {
+        const remaining = conversations.filter(c => c.id !== id);
+        setActiveChatId(remaining.length > 0 ? remaining[0].id : null);
+      }
+    } catch (err) {
+      console.error("Error deleting conversation:", err);
+    }
+  }, [activeChatId, conversations]);
+
   const createNewAiChat = async () => {
     if (!user) return;
     try {
+      // Reuse existing empty AI conversation if available
+      const existingEmpty = conversations.find(c => 
+        c.type === 'ai' && (c.lastMessage === 'Halo! Ada yang bisa Dyfa bantu?' || !c.lastMessage)
+      );
+
+      if (existingEmpty) {
+        setActiveChatId(existingEmpty.id);
+        setActiveTab('chat');
+        return;
+      }
+
       const convRef = await addDoc(collection(db, 'conversations'), {
         type: 'ai',
         participants: [user.uid],
@@ -1567,6 +1601,7 @@ export default function App() {
             {activeTab === 'chat' && (
               <div className="fixed inset-0 lg:static flex flex-col pt-16 lg:pt-0 pb-0 lg:h-[calc(100vh-120px)] bg-bg lg:bg-transparent z-40 overflow-hidden">
                 <div className="flex-1 flex overflow-hidden lg:rounded-[40px] glass-card shadow-2xl relative">
+                  {/* Desktop Chat Sidebar */}
                   <div className="w-[320px] hidden md:block shrink-0 border-r border-white/20">
                     <Suspense fallback={<div className="h-full flex items-center justify-center animate-pulse"><Sparkles /></div>}>
                       <ChatSidebar 
@@ -1574,20 +1609,15 @@ export default function App() {
                         activeId={activeChatId}
                         onSelect={setActiveChatId}
                         onNewChat={createNewAiChat}
+                        onPinToggle={handlePinChat}
+                        onDelete={handleDeleteChat}
                         isLoading={false}
                       />
                     </Suspense>
                   </div>
 
+                  {/* Main Chat Interface */}
                   <div className="flex-1 h-full min-w-0 bg-transparent flex flex-col relative">
-                    {/* Current Chat Mobile Header */}
-                    <div className="md:hidden p-4 border-b border-white/10 flex items-center gap-3 bg-white/20">
-                      <button onClick={() => setActiveChatId(null)} className="p-2 bg-white/40 rounded-full shrink-0"><Plus className="rotate-45" size={16}/></button>
-                      <span className="text-xs font-black truncate">
-                        {conversations.find(c => c.id === activeChatId)?.title || "Dyfa AI"}
-                      </span>
-                    </div>
-
                     <Suspense fallback={<div className="h-full flex items-center justify-center"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
                       <ChatInterface 
                         messages={chatMessages}
@@ -1602,61 +1632,134 @@ export default function App() {
                         startListening={startListening}
                         activeConv={conversations.find(c => c.id === activeChatId)}
                         isPro={isPro}
+                        onOpenMobileSidebar={() => setShowMobileChatSidebar(true)}
                       />
                     </Suspense>
                   </div>
                 </div>
+
+                {/* Mobile Chat Sidebar Overlay Drawer */}
+                <AnimatePresence>
+                  {showMobileChatSidebar && (
+                    <>
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowMobileChatSidebar(false)}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] md:hidden"
+                      />
+                      <motion.div 
+                        initial={{ x: '-100%' }}
+                        animate={{ x: 0 }}
+                        exit={{ x: '-100%' }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                        className="fixed inset-y-0 left-0 w-[85%] max-w-[320px] bg-bg z-[80] md:hidden shadow-2xl flex flex-col border-r border-white/20"
+                      >
+                        <div className="p-3 border-b border-white/20 flex justify-between items-center bg-white/20">
+                          <span className="text-xs font-black text-text-main flex items-center gap-2">
+                            <MessageSquare size={16} className="text-accent" /> Daftar Obrolan
+                          </span>
+                          <motion.button 
+                            whileHover={{ rotate: 90 }}
+                            whileTap={{ scale: 0.85, rotate: -90 }}
+                            onClick={() => setShowMobileChatSidebar(false)}
+                            className="p-1.5 hover:bg-white/40 rounded-full text-text-muted"
+                          >
+                            <X size={18} />
+                          </motion.button>
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          <ChatSidebar 
+                            conversations={conversations}
+                            activeId={activeChatId}
+                            onSelect={(id) => {
+                              setActiveChatId(id);
+                              setShowMobileChatSidebar(false);
+                            }}
+                            onNewChat={() => {
+                              createNewAiChat();
+                              setShowMobileChatSidebar(false);
+                            }}
+                            onPinToggle={handlePinChat}
+                            onDelete={handleDeleteChat}
+                            isLoading={false}
+                          />
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
             )}
           </AnimatePresence>
         </main>
       </div>
 
-      {/* AI Panel (Persistent on Desktop, Toggleable on Mobile) */}
+      {/* AI Panel (Persistent on Desktop, Toggleable Header Shortcut on Mobile/Desktop) */}
       <AnimatePresence>
         {activeTab !== 'chat' && showAiPanel && !isQuizActive && (
-          <aside className={cn(
-            "w-[340px] flex flex-col shrink-0 border-l border-white/20 transition-all duration-500 z-[60] shadow-2xl",
-            "fixed inset-y-0 right-0 xl:static chat-gradient"
-          )}>
-            <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-accent/5 -z-10" />
-            
-            <div className="p-5 border-b border-white/20 flex justify-between items-center bg-white/10 shrink-0">
-              <div>
-                <div className="text-sm font-black text-text-main flex items-center gap-2">
-                  <div className="w-2 h-2 bg-accent rounded-full animate-bounce" />
-                  Dyfa AI Assistant
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAiPanel(false)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[55] xl:hidden"
+            />
+            <motion.aside 
+              initial={{ x: '100%', opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+              className={cn(
+                "w-full sm:w-[360px] md:w-[380px] max-w-full flex flex-col shrink-0 border-l border-white/20 z-[60] shadow-2xl",
+                "fixed inset-y-0 right-0 xl:static chat-gradient h-full h-[100dvh]"
+              )}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-accent/5 -z-10" />
+              
+              <div className="p-4 sm:p-5 border-b border-white/20 flex justify-between items-center bg-white/10 shrink-0">
+                <div>
+                  <div className="text-sm font-black text-text-main flex items-center gap-2">
+                    <div className="w-2 h-2 bg-accent rounded-full animate-bounce" />
+                    Dyfa AI Assistant
+                  </div>
+                  <div className="text-[10px] text-text-muted font-bold tracking-widest uppercase mt-0.5">
+                    Ready to help you
+                  </div>
                 </div>
-                <div className="text-[10px] text-text-muted font-bold tracking-widest uppercase mt-0.5">
-                  Ready to help you
-                </div>
+                <motion.button 
+                  whileHover={{ rotate: 90, scale: 1.1 }}
+                  whileTap={{ scale: 0.85, rotate: -90 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+                  onClick={() => setShowAiPanel(false)} 
+                  className="p-2 hover:bg-white/40 rounded-full text-text-muted transition-colors active:scale-95 flex items-center justify-center"
+                  title="Tutup Panel AI"
+                >
+                  <X size={20} />
+                </motion.button>
               </div>
-              <button 
-                onClick={() => setShowAiPanel(false)} 
-                className="p-1.5 hover:bg-white/40 rounded-full text-text-muted transition-all"
-              >
-                <X size={18} />
-              </button>
-            </div>
 
-            <div className="flex-1 min-h-0 relative">
-              <Suspense fallback={<div className="h-full flex items-center justify-center"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
-                <ChatInterface 
-                  messages={chatMessages}
-                  input={inputMessage}
-                  setInput={setInputMessage}
-                  onSend={handleSendMessage}
-                  isLoading={isAiLoading}
-                  isSidebar={true}
-                  selectedImage={selectedImage}
-                  onImageSelect={handleImageSelect}
-                  onClearImage={() => setSelectedImage(null)}
-                  isListening={isListening}
-                  startListening={startListening}
-                />
-              </Suspense>
-            </div>
-          </aside>
+              <div className="flex-1 min-h-0 relative overflow-hidden">
+                <Suspense fallback={<div className="h-full flex items-center justify-center"><Sparkles className="animate-pulse text-accent" size={48} /></div>}>
+                  <ChatInterface 
+                    messages={chatMessages}
+                    input={inputMessage}
+                    setInput={setInputMessage}
+                    onSend={handleSendMessage}
+                    isLoading={isAiLoading}
+                    isSidebar={true}
+                    selectedImage={selectedImage}
+                    onImageSelect={handleImageSelect}
+                    onClearImage={() => setSelectedImage(null)}
+                    isListening={isListening}
+                    startListening={startListening}
+                  />
+                </Suspense>
+              </div>
+            </motion.aside>
+          </>
         )}
       </AnimatePresence>
     </div>

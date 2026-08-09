@@ -93,6 +93,7 @@ export const Navbar = memo(({
                activeTab === 'profile' ? 'Profil Saya' : 
                activeTab === 'osn-archive' ? 'Arsip OSN' :
                activeTab === 'calculator' ? 'Kalkulator Sains' :
+               activeTab === 'chat' ? 'Obrolan' :
                activeTab === 'customer-service' ? 'Layanan Pelanggan' : 'Dyfa AI'}
             </span>
           </div>
