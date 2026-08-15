@@ -1,6 +1,9 @@
 {
   "name": "dyfalogy",
-  "description": "Platform belajar OSP Biologi interaktif dengan materi silabus, quiz AI, sistem level, dan asisten AI.",
+  "description": "Platform belajar OSP & OSN Biologi interaktif dengan asisten Super AI Dyfa, video visualisasi materi Veo 3, quiz AI, sistem level, dan fitur Dyfalogy Pro.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
+

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, FileText, HelpCircle } from 'lucide-react';
+import { X, FileText, HelpCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-// Dummy ConfirmationModal for Quiz (to avoid circular dependency during rapid extraction)
+// Confirmation Modal with Full Screen Gaussian Blur, Transparent Glass Aesthetic & High-Contrast Typography
 const ConfirmationModal = ({ 
   isOpen, 
   onClose, 
@@ -22,23 +23,74 @@ const ConfirmationModal = ({
   isDanger?: boolean
 }) => {
   if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-      <div onClick={onClose} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative w-full max-w-sm bg-white rounded-3xl p-8 shadow-2xl overflow-hidden">
-        <div className="space-y-4">
-          <h3 className="text-xl font-bold">{title}</h3>
-          <p className="text-sm text-gray-600">{message}</p>
-          <div className="flex gap-3 pt-2">
-            <button onClick={onClose} className="flex-1 py-3 bg-gray-100 rounded-xl font-bold text-sm">Batal</button>
-            <button onClick={onConfirm} className={cn("flex-1 py-3 rounded-xl font-bold text-sm text-white", isDanger ? "bg-red-500" : "bg-emerald-500")}>
-              {confirmText}
-            </button>
+
+  const modalContent = (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+        {/* Full-Screen Gaussian Blur Backdrop */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose} 
+          className="absolute inset-0 bg-slate-950/45 backdrop-blur-md" 
+        />
+        
+        {/* Modal Card with transparent glassmorphism, gaussian blur & high-contrast crisp text */}
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.92, y: 16 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.92, y: 16 }}
+          transition={{ type: "spring", duration: 0.3 }}
+          className="relative w-full max-w-sm glass-card bg-white/45 backdrop-blur-2xl rounded-3xl p-6 sm:p-7 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] border border-white/70 overflow-hidden"
+        >
+          {/* Top colored accent line */}
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-white/40">
+            <div className={cn("h-full", isDanger ? "bg-red-500" : "bg-emerald-500")} style={{ width: '100%' }} />
           </div>
-        </div>
+
+          <div className="space-y-4 pt-1">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-sm border border-white/60",
+                isDanger ? "bg-red-500/20 text-red-700" : "bg-emerald-500/20 text-emerald-700"
+              )}>
+                <AlertTriangle size={20} />
+              </div>
+              <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-snug">{title}</h3>
+            </div>
+
+            <p className="text-sm font-bold text-slate-900 leading-relaxed drop-shadow-[0_1px_0px_rgba(255,255,255,0.7)]">{message}</p>
+
+            <div className="flex gap-2.5 pt-2">
+              <button 
+                type="button"
+                onClick={onClose} 
+                className="flex-1 py-3 bg-white/60 hover:bg-white/90 text-slate-900 rounded-xl font-bold text-sm border border-white/80 transition-all active:scale-95 shadow-xs"
+              >
+                Batal
+              </button>
+              <button 
+                type="button"
+                onClick={() => { onConfirm(); onClose(); }} 
+                className={cn(
+                  "flex-1 py-3 rounded-xl font-black text-sm text-white shadow-lg transition-all active:scale-95",
+                  isDanger ? "bg-red-600 hover:bg-red-700 shadow-red-500/30" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/30"
+                )}
+              >
+                {confirmText}
+              </button>
+            </div>
+          </div>
+        </motion.div>
       </div>
-    </div>
+    </AnimatePresence>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  return modalContent;
 };
 
 export const Quiz = memo(({ questions, timerSeconds, onFinish, onCancel }: { questions: any[], timerSeconds?: number, onFinish: (score: number, correct: number) => void, onCancel: () => void }) => {
@@ -48,14 +100,49 @@ export const Quiz = memo(({ questions, timerSeconds, onFinish, onCancel }: { que
   const [statementAnswers, setStatementAnswers] = useState<(boolean | null)[]>([null, null, null, null]);
   const [showExplanation, setShowExplanation] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timerSeconds || 0);
+  const [exitPromptActive, setExitPromptActive] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [quizResults, setQuizResults] = useState<any[]>([]);
   const [isFinished, setIsFinished] = useState(false);
+
+  // Auto-reset the first-step exit confirmation prompt after 3.5 seconds
+  useEffect(() => {
+    if (exitPromptActive) {
+      const timer = setTimeout(() => {
+        setExitPromptActive(false);
+      }, 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [exitPromptActive]);
+
+  const handleExitButtonClick = () => {
+    if (!exitPromptActive) {
+      // Step 1: activate text popup prompt
+      setExitPromptActive(true);
+    } else {
+      // Step 2: on second click, open the modal
+      setExitPromptActive(false);
+      setShowExitConfirm(true);
+    }
+  };
 
   const currentQuestion = questions[currentIndex];
 
   useEffect(() => {
     if (!timerSeconds || showExplanation || isFinished) return;
+
+    // Haptic vibration alert for the final 3 seconds
+    if (timeLeft <= 3 && timeLeft > 0) {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          // Vibrate for 200ms on each of the last 3 seconds
+          navigator.vibrate(200);
+        } catch (e) {
+          // Ignore if vibration is not supported or blocked by browser policy
+        }
+      }
+    }
+
     if (timeLeft <= 0) {
       setShowExplanation(true);
       return;
@@ -214,39 +301,100 @@ export const Quiz = memo(({ questions, timerSeconds, onFinish, onCancel }: { que
   }
 
   return (
-    <div className="w-full h-full overflow-y-auto custom-scrollbar p-3 sm:p-6 md:p-8 lg:p-10">
-      <div className="max-w-4xl lg:max-w-5xl mx-auto space-y-6 pb-28">
-        <div className="glass-card rounded-[2.5rem] p-6 md:p-10 space-y-8 shadow-2xl relative border border-white/60 overflow-hidden">
-          {timerSeconds && (
-            <div className="absolute top-0 left-0 h-2 bg-gray-100/30 w-full overflow-hidden">
-              <motion.div 
-                className="h-full bg-gradient-to-r from-accent to-emerald-400"
-                initial={{ width: '100%' }}
-                animate={{ width: `${(timeLeft / timerSeconds) * 100}%` }}
-                transition={{ duration: 1, ease: 'linear' }}
-              />
-            </div>
-          )}
-          
-          <div className="flex justify-between items-center bg-white/40 p-3 rounded-2xl border border-white/60">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-accent text-white flex items-center justify-center font-black text-xs shadow-lg shadow-accent/20">{currentIndex + 1}</div>
-              <span className="text-[10px] md:text-xs font-black text-text-muted uppercase tracking-widest">Soal Progres {currentIndex + 1} / {questions.length}</span>
-            </div>
-            <div className="flex items-center gap-4">
-              {timerSeconds && (
-                <div className={cn(
-                  "px-4 py-1.5 rounded-full font-mono font-black text-xs border transition-all",
-                  timeLeft < 10 ? "bg-red-500 text-white border-red-600 animate-bounce" : "bg-white text-accent border-accent/20"
-                )}>
-                  {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
-                </div>
+    <div className="w-full h-full overflow-y-auto custom-scrollbar relative">
+      {/* Sticky Slim Progress Bar Only at the Top */}
+      {timerSeconds && (
+        <div className="sticky top-0 left-0 right-0 z-40 w-full bg-slate-900/10 backdrop-blur-xs">
+          <div className="w-full h-2 sm:h-2.5 bg-slate-200/90 overflow-hidden shadow-xs">
+            <motion.div 
+              className={cn(
+                "h-full transition-all duration-300",
+                timeLeft <= 3 
+                  ? "bg-gradient-to-r from-red-600 via-rose-500 to-red-500 animate-pulse shadow-lg shadow-red-500/50" 
+                  : timeLeft < 10 
+                    ? "bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500" 
+                    : "bg-gradient-to-r from-accent via-emerald-400 to-emerald-500"
               )}
-              <button onClick={() => setShowExitConfirm(true)} className="w-8 h-8 rounded-xl bg-white/80 flex items-center justify-center text-text-muted hover:text-red-500 hover:bg-red-50 hover:rotate-90 transition-all duration-500 cursor-pointer">
-                <X size={16} />
-              </button>
-            </div>
+              initial={{ width: '100%' }}
+              animate={{ width: `${(timeLeft / timerSeconds) * 100}%` }}
+              transition={{ duration: 1, ease: 'linear' }}
+            />
           </div>
+        </div>
+      )}
+
+      <div className="p-3 sm:p-6 md:p-8 lg:p-10">
+        <div className="max-w-4xl lg:max-w-5xl mx-auto space-y-6 pb-28">
+          <div className="glass-card rounded-2xl p-5 sm:p-8 md:p-10 space-y-6 sm:space-y-8 shadow-xl relative border border-white/70">
+            
+            {/* Clean Non-Sticky Header Card */}
+            <div className="flex justify-between items-center gap-3 bg-white/60 backdrop-blur-sm p-3.5 sm:p-4 rounded-xl border border-white/80 shadow-xs">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-accent text-white flex items-center justify-center font-black text-xs shadow-sm shadow-accent/20 shrink-0">
+                  {currentIndex + 1}
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[10px] md:text-xs font-black text-text-muted uppercase tracking-widest block truncate">
+                    Soal Progres {currentIndex + 1} / {questions.length}
+                  </span>
+                  {timeLeft <= 3 && timerSeconds && !showExplanation && (
+                    <span className="text-[9px] font-black text-red-600 animate-pulse block truncate">
+                      ⚠️ Sisa 3 detik! Segera selesaikan jawaban
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                {timerSeconds && (
+                  <div className={cn(
+                    "px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg font-mono font-black text-xs border transition-all flex items-center gap-1.5 shadow-xs",
+                    timeLeft <= 3 
+                      ? "bg-red-600 text-white border-red-700 animate-bounce scale-105 shadow-md shadow-red-500/40" 
+                      : timeLeft < 10 
+                        ? "bg-amber-500 text-white border-amber-600 animate-pulse" 
+                        : "bg-white text-accent border-accent/20"
+                  )}>
+                    <span>⏱️</span>
+                    <span>{Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}</span>
+                  </div>
+                )}
+                
+                <div className="relative">
+                  <button 
+                    type="button"
+                    onClick={handleExitButtonClick} 
+                    className={cn(
+                      "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs",
+                      exitPromptActive 
+                        ? "bg-red-600 text-white ring-2 ring-red-400 scale-105 shadow-md shadow-red-500/30" 
+                        : "bg-white/80 hover:bg-red-50 text-text-muted hover:text-red-500 border border-white/60 hover:rotate-90"
+                    )}
+                    title="Batalkan Kuis"
+                  >
+                    <X size={16} />
+                  </button>
+
+                  {/* Verifikasi Pertama: Popup Teks Ringan */}
+                  <AnimatePresence>
+                    {exitPromptActive && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 4, scale: 0.95 }}
+                        onClick={handleExitButtonClick}
+                        className="absolute right-0 top-full mt-2 z-50 cursor-pointer"
+                      >
+                        <div className="bg-slate-900/95 backdrop-blur-md text-white text-[11px] font-bold py-1.5 px-3 rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap flex items-center gap-1.5 active:scale-95 transition-transform">
+                          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block" />
+                          <span>Klik sekali lagi untuk keluar</span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
 
           <ConfirmationModal 
             isOpen={showExitConfirm}
@@ -397,6 +545,7 @@ export const Quiz = memo(({ questions, timerSeconds, onFinish, onCancel }: { que
               </span>
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
             </button>
+          </div>
           </div>
         </div>
       </div>

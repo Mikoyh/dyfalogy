@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, memo, useMemo, useCallback, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, signInWithGoogle, logout, db } from './lib/firebase';
 import { doc, getDoc, setDoc, collection, addDoc, query, orderBy, limit, onSnapshot, serverTimestamp, updateDoc, increment, deleteDoc, where } from 'firebase/firestore';
@@ -49,7 +50,7 @@ import {
 import { LESSONS, STUDY_STRATEGIES, BADGES, Lesson, Badge, CATEGORIES } from './constants/data';
 import ReactMarkdown from 'react-markdown';
 import { BIOLOGY_CURRICULUM } from './constants/learning';
-import { getGeminiResponse, generateQuiz, generateTTS } from './lib/gemini';
+import { getGeminiResponse, getFastGeminiResponse, generateQuiz, generateTTS } from './lib/gemini';
 import { useGamification } from './hooks/useGamification';
 import { cn } from './lib/utils';
 const Navbar = React.lazy(() => import('./components/Navbar').then(module => ({ default: module.Navbar })));
@@ -64,6 +65,7 @@ const OsnArchive = React.lazy(() => import('./components/OsnArchive').then(modul
 const CustomerService = React.lazy(() => import('./components/CustomerService').then(module => ({ default: module.CustomerService })));
 const ChatSidebar = React.lazy(() => import('./components/ChatSidebar').then(module => ({ default: module.ChatSidebar })));
 const LearningPath = React.lazy(() => import('./components/LearningPath').then(module => ({ default: module.LearningPath })));
+const LessonVideoVisualizer = React.lazy(() => import('./components/LessonVideoVisualizer').then(module => ({ default: module.LessonVideoVisualizer })));
 import { Conversation } from './components/ChatSidebar';
 const Flashcards = React.lazy(() => import('./components/Flashcards').then(module => ({ default: module.Flashcards })));
 const Analytics = React.lazy(() => import('./components/Analytics').then(module => ({ default: module.Analytics })));
@@ -91,40 +93,44 @@ const ConfirmationModal = ({
   confirmText?: string,
   cancelText?: string,
   isDanger?: boolean
-}) => (
-  <AnimatePresence>
-    {isOpen && (
-      <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+}) => {
+  if (!isOpen) return null;
+
+  const content = (
+    <AnimatePresence>
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          className="absolute inset-0 bg-slate-950/45 backdrop-blur-md"
         />
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          initial={{ opacity: 0, scale: 0.92, y: 16 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="relative w-full max-w-sm glass-card rounded-3xl p-8 border border-white/50 shadow-2xl overflow-hidden"
+          exit={{ opacity: 0, scale: 0.92, y: 16 }}
+          className="relative w-full max-w-sm glass-card bg-white/45 backdrop-blur-2xl rounded-3xl p-6 sm:p-7 border border-white/70 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] overflow-hidden"
         >
-          <div className="absolute top-0 inset-x-0 h-1.5 bg-accent/20">
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-white/40">
             <div className={cn("h-full", isDanger ? "bg-red-500" : "bg-accent")} style={{ width: '100%' }} />
           </div>
-          <div className="space-y-4">
-            <h3 className="text-xl font-black tracking-tight">{title}</h3>
-            <p className="text-sm text-text-muted leading-relaxed">{message}</p>
-            <div className="flex gap-3 pt-2">
+          <div className="space-y-4 pt-1">
+            <h3 className="text-xl font-black text-slate-900 tracking-tight leading-snug">{title}</h3>
+            <p className="text-sm font-bold text-slate-900 leading-relaxed drop-shadow-[0_1px_0px_rgba(255,255,255,0.7)]">{message}</p>
+            <div className="flex gap-2.5 pt-2">
               <button 
+                type="button"
                 onClick={onClose}
-                className="flex-1 py-3 rounded-xl text-sm font-bold bg-white/50 border border-border hover:bg-white transition-all"
+                className="flex-1 py-3 rounded-xl text-sm font-bold bg-white/60 hover:bg-white/90 text-slate-900 border border-white/80 transition-all active:scale-95 shadow-xs"
               >
                 {cancelText}
               </button>
               <button 
+                type="button"
                 onClick={() => { onConfirm(); onClose(); }}
                 className={cn(
-                  "flex-1 py-3 rounded-xl text-sm font-bold text-white shadow-lg transition-all active:scale-95",
+                  "flex-1 py-3 rounded-xl text-sm font-black text-white shadow-lg transition-all active:scale-95",
                   isDanger ? "bg-red-600 shadow-red-500/20 hover:bg-red-700" : "bg-accent shadow-accent/20 hover:bg-[#1A4331]"
                 )}
               >
@@ -134,9 +140,14 @@ const ConfirmationModal = ({
           </div>
         </motion.div>
       </div>
-    )}
-  </AnimatePresence>
-);
+    </AnimatePresence>
+  );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(content, document.body);
+  }
+  return content;
+};
 
 // --- Feature Components Extracted ---
 
@@ -168,6 +179,8 @@ export default function App() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [inputMessage, setInputMessage] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiMode, setAiMode] = useState<'standard' | 'fast' | 'pro'>('standard');
+  const lastUserPromptRef = useRef<string>('');
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [showMobileChatSidebar, setShowMobileChatSidebar] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -258,7 +271,6 @@ export default function App() {
   // Quiz states
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
   const [isQuizActive, setIsQuizActive] = useState(false);
-  const [showQuizCloseConfirm, setShowQuizCloseConfirm] = useState(false);
   const [isQuizLoading, setIsQuizLoading] = useState(false);
   const [quizResult, setQuizResult] = useState<{ score: number, correct: number } | null>(null);
   
@@ -375,8 +387,7 @@ export default function App() {
   }, [user]);
 
   // Optimized memoized functions
-  const handleSendMessage = useCallback(async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleSendMessage = useCallback(async (selectedAiMode?: 'standard' | 'fast' | 'pro') => {
     if ((!inputMessage.trim() && !selectedImage) || !user) return;
 
     let currentChatId = activeChatId;
@@ -397,6 +408,7 @@ export default function App() {
 
     const userMsg = inputMessage;
     const userImg = selectedImage;
+    lastUserPromptRef.current = userMsg;
     setInputMessage('');
     setSelectedImage(null);
     setIsAiLoading(true);
@@ -427,17 +439,30 @@ export default function App() {
           parts: [{ text: m.content }]
         }));
 
-        const aiResponse = await getGeminiResponse(userMsg || "Tolong jelaskan gambar ini", history, userImg || undefined, isPro);
+        const modeToUse = selectedAiMode || aiMode;
+        const aiResponse = await getGeminiResponse(
+          userMsg || "Tolong jelaskan gambar ini secara detail", 
+          history, 
+          userImg || undefined, 
+          isPro,
+          modeToUse
+        );
+
+        const responseText = aiResponse.text || "Maaf, terjadi kendala saat memproses jawaban.";
+        const thoughtSteps = aiResponse.thoughtSteps || [];
+        const modelUsed = aiResponse.modelUsed || "Gemini 3.7 Super AI";
 
         await addDoc(msgRef, {
           role: 'model',
-          content: aiResponse,
+          content: responseText,
+          thoughtSteps,
+          modelUsed,
           timestamp: serverTimestamp(),
           participants
         });
 
         await updateDoc(doc(db, 'conversations', currentChatId!), {
-          lastMessage: aiResponse,
+          lastMessage: responseText,
           updatedAt: serverTimestamp()
         });
       }
@@ -446,7 +471,37 @@ export default function App() {
     } finally {
       setIsAiLoading(false);
     }
-  }, [user, inputMessage, selectedImage, activeChatId, chatMessages, conversations]);
+  }, [user, inputMessage, selectedImage, activeChatId, chatMessages, conversations, aiMode, isPro]);
+
+  const handleQuickAnswer = useCallback(async () => {
+    if (!activeChatId || !user) return;
+    const prompt = lastUserPromptRef.current || "Jelaskan ringkasan intinya saja";
+    try {
+      const activeConv = conversations.find(c => c.id === activeChatId);
+      const msgRef = collection(db, 'conversations', activeChatId, 'messages');
+      const participants = activeConv?.participants || [user.uid];
+
+      const fastAnswer = await getFastGeminiResponse(prompt, isPro);
+      
+      await addDoc(msgRef, {
+        role: 'model',
+        content: fastAnswer,
+        thoughtSteps: ["⚡ Mode Kilat (Answer Now): Menghasilkan respon langsung tanpa proses penalaran mendalam."],
+        modelUsed: "gemini-3.1-flash-lite (Kilat)",
+        timestamp: serverTimestamp(),
+        participants
+      });
+
+      await updateDoc(doc(db, 'conversations', activeChatId), {
+        lastMessage: fastAnswer,
+        updatedAt: serverTimestamp()
+      });
+    } catch (err) {
+      console.error("Quick answer error:", err);
+    } finally {
+      setIsAiLoading(false);
+    }
+  }, [activeChatId, user, isPro, conversations]);
 
   const handlePinChat = useCallback(async (id: string, currentPinned: boolean) => {
     try {
@@ -547,7 +602,7 @@ export default function App() {
     try {
       const weakTopics = userData?.topicStats 
         ? Object.entries(userData.topicStats)
-            .filter(([_, score]: [any, any]) => score < 70)
+            .filter(([_, score]: [any, any]) => (score as number) < 70)
             .map(([id]) => BIOLOGY_CURRICULUM.find(t => t.id === id)?.title || id)
         : [];
 
@@ -559,15 +614,18 @@ export default function App() {
         weakTopics,
         isPro
       );
-      setQuizQuestions(questions);
-      setIsQuizActive(true);
+      if (questions && questions.length > 0) {
+        setQuizQuestions(questions);
+        setIsQuizActive(true);
+      } else {
+        throw new Error("Tidak ada soal yang dihasilkan.");
+      }
     } catch (error) {
       console.error("Quiz generation error:", error);
-      alert('Gagal membuat quiz. Pastikan API Key Gemini sudah terpasang.');
     } finally {
       setIsQuizLoading(false);
     }
-  }, [quizConfig.count]);
+  }, [quizConfig.count, userData?.topicStats, isPro]);
 
   const handleFinishQuiz = useCallback(async (score: number, correct: number) => {
     if (!user || !selectedLesson) return;
@@ -1144,19 +1202,7 @@ export default function App() {
                       questions={quizQuestions} 
                       timerSeconds={quizConfig.timer}
                       onFinish={handleFinishQuiz} 
-                      onCancel={() => setShowQuizCloseConfirm(true)} 
-                    />
-                    <ConfirmationModal 
-                      isOpen={showQuizCloseConfirm}
-                      onClose={() => setShowQuizCloseConfirm(false)}
-                      onConfirm={() => {
-                        setIsQuizActive(false);
-                        setShowQuizCloseConfirm(false);
-                      }}
-                      title="Akhiri Quiz?"
-                      message="Progress quiz ini tidak akan disimpan dan anda akan mengulang dari awal jika kembali."
-                      confirmText="Ya, Akhiri"
-                      isDanger={true}
+                      onCancel={() => setIsQuizActive(false)} 
                     />
                   </Suspense>
                 ) : selectedLesson ? (
@@ -1197,96 +1243,42 @@ export default function App() {
                         <ReactMarkdown>{selectedLesson.content}</ReactMarkdown>
                       </div>
 
-                      {/* AI PRO FEATURES SECTION */}
-                      {selectedLesson.aiAssets && (
-                        <div className="mt-8 space-y-6">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
-                              <Sparkles size={16} /> Visualisasi Pro AI
-                            </h4>
-                            {!userData?.isPro && (
-                              <span className="px-3 py-1 bg-amber-100 text-amber-600 text-[9px] font-black rounded-full uppercase tracking-widest flex items-center gap-1">
-                                <Lock size={10} /> Akun Pro Diperlukan
-                              </span>
-                            )}
+                      {/* AI PRO FEATURES SECTION & VIDEO VISUALIZER */}
+                      <Suspense fallback={<div className="h-48 glass-card animate-pulse rounded-3xl" />}>
+                        <LessonVideoVisualizer 
+                          lesson={selectedLesson} 
+                          isPro={isPro} 
+                          onUpgradePro={() => setActiveTab('pro-model')} 
+                        />
+                      </Suspense>
+
+                      {/* Image Gallery */}
+                      {selectedLesson.aiAssets?.images && selectedLesson.aiAssets.images.length > 0 && (
+                        <div className="mt-6 space-y-4">
+                          <h4 className="text-xs font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
+                            <Sparkles size={14} /> Galeri Penampang & Histologi Mikroskopis
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {selectedLesson.aiAssets.images.map((img, idx) => (
+                              <motion.div 
+                                key={idx}
+                                whileHover={{ scale: 1.02 }}
+                                className="group relative rounded-[28px] overflow-hidden border border-accent/10 shadow-lg bg-white"
+                              >
+                                <img 
+                                  src={img.url} 
+                                  alt={img.caption} 
+                                  className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-700"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <div className="p-3.5">
+                                  <p className="text-[11px] font-medium text-text-muted leading-relaxed italic">
+                                    {img.caption}
+                                  </p>
+                                </div>
+                              </motion.div>
+                            ))}
                           </div>
-
-                          {userData?.isPro ? (
-                            <div className="space-y-6">
-                              {/* Images Grid */}
-                              {selectedLesson.aiAssets.images && selectedLesson.aiAssets.images.length > 0 && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {selectedLesson.aiAssets.images.map((img, idx) => (
-                                    <motion.div 
-                                      key={idx}
-                                      whileHover={{ scale: 1.02 }}
-                                      className="group relative rounded-[32px] overflow-hidden border border-accent/10 shadow-xl bg-white"
-                                    >
-                                      <img 
-                                        src={img.url} 
-                                        alt={img.caption} 
-                                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-700"
-                                        referrerPolicy="no-referrer"
-                                      />
-                                      <div className="p-4">
-                                        <p className="text-[10px] font-medium text-text-muted leading-relaxed italic">
-                                          {img.caption}
-                                        </p>
-                                      </div>
-                                      <div className="absolute top-3 right-3 p-2 bg-accent/20 backdrop-blur-md rounded-full text-accent opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <ImageIcon size={14} />
-                                      </div>
-                                    </motion.div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {/* Video Section */}
-                              {selectedLesson.aiAssets.videos && selectedLesson.aiAssets.videos.length > 0 && (
-                                <div className="space-y-4">
-                                  {selectedLesson.aiAssets.videos.map((vid, idx) => (
-                                    <div key={idx} className="glass-card overflow-hidden rounded-[32px] border border-accent/10 border-white/40 shadow-2xl">
-                                      <div className="relative aspect-video bg-black/10 group cursor-pointer overflow-hidden border-b border-white/20">
-                                         <iframe
-                                          className="w-full h-full"
-                                          src={vid.url}
-                                          title={vid.title}
-                                          frameBorder="0"
-                                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                          allowFullScreen
-                                        ></iframe>
-                                      </div>
-                                      <div className="p-6">
-                                        <div className="flex items-center gap-3 mb-2">
-                                          <div className="w-8 h-8 bg-accent/10 rounded-xl flex items-center justify-center text-accent">
-                                            <Play size={16} fill="currentColor" />
-                                          </div>
-                                          <h5 className="font-black text-lg tracking-tight">{vid.title}</h5>
-                                        </div>
-                                        <p className="text-xs text-text-muted leading-relaxed">{vid.description}</p>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div 
-                              onClick={() => setActiveTab('pro')} 
-                              className="relative group cursor-pointer overflow-hidden rounded-[32px] border-2 border-dashed border-accent/20 p-12 text-center transition-all hover:bg-accent/5"
-                            >
-                              <div className="bg-white/50 backdrop-blur-sm p-4 rounded-2xl inline-block mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                                <Lock size={32} className="text-accent" />
-                              </div>
-                              <h5 className="text-lg font-black mb-2">Konten Visual AI Terkunci</h5>
-                              <p className="text-sm text-text-muted max-w-sm mx-auto mb-6">
-                                Dapatkan akses ke video animasi 3D dan gambar mikroskopis yang dihasilkan AI untuk membantu kamu visualisasi konsep Biologi yang kompleks.
-                              </p>
-                              <button className="bg-accent text-white px-8 py-3 rounded-2xl text-xs font-black shadow-xl shadow-accent/20 group-hover:shadow-accent/40 transition-all">
-                                BUKA FITUR PRO SEKARANG
-                              </button>
-                            </div>
-                          )}
                         </div>
                       )}
 
@@ -1633,6 +1625,11 @@ export default function App() {
                         activeConv={conversations.find(c => c.id === activeChatId)}
                         isPro={isPro}
                         onOpenMobileSidebar={() => setShowMobileChatSidebar(true)}
+                        onQuickAnswer={handleQuickAnswer}
+                        aiMode={aiMode}
+                        setAiMode={setAiMode}
+                        onPlayTTS={playTTSContent}
+                        onUpgradePro={() => setActiveTab('pro-model')}
                       />
                     </Suspense>
                   </div>

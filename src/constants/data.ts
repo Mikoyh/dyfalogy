@@ -295,6 +295,13 @@ Akar dan batang tumbuhan terdiri dari tiga sistem jaringan utama: epidermis, jar
     aiAssets: {
       images: [
         { url: 'https://images.unsplash.com/photo-1528183429752-a97d0bf99b5a?auto=format&fit=crop&q=80&w=1000', caption: 'Irisan Melintang Akar Dikotil: Detail Stele dan Pita Caspary' }
+      ],
+      videos: [
+        {
+          url: 'https://www.youtube.com/embed/PzM0yJ9i-t4',
+          title: 'Anatomi Mikroskopis Akar & Batang',
+          description: 'Visualisasi penampang melintang xilem, floem, dan jalur simplas-apoplas pita Caspary.'
+        }
       ]
     }
   },
@@ -334,7 +341,7 @@ Terjadi di floem melalui **Aliran Tekanan (Pressure Flow Hypothesis)**.
         { url: 'https://images.unsplash.com/photo-1464306303998-cb8675765169?auto=format&fit=crop&q=80&w=1000', caption: 'Visualisasi Aliran Air pada Xilem melalui Gaya Kohesi-Adhesi' }
       ],
       videos: [
-        { url: 'https://www.youtube.com/embed/LbeZ0a6L6T8', title: 'Mekanisme Kerja Fitohormon', description: 'Bagaimana Auksin dan Giberelin memacu pertumbuhan sel tumbuhan secara selektif.' }
+        { url: 'https://www.youtube.com/embed/LbeZ0a6L6T8', title: 'Mekanisme Kerja Fitohormon & Transpirasi', description: 'Bagaimana Auksin dan Giberelin memacu pertumbuhan sel tumbuhan dan mekanisme bukaan stomata.' }
       ]
     }
   },
@@ -354,7 +361,7 @@ Sistem peredaran darah tertutup pada vertebrata melibatkan jantung sebagai pompa
         { url: 'https://images.unsplash.com/photo-1530026186672-2cd00ffc50fe?auto=format&fit=crop&q=80&w=1000', caption: 'Struktur Jantung Mamalia: Katup dan Aliran Darah' }
       ],
       videos: [
-        { url: 'https://www.youtube.com/embed/f9ONVdn1KNo', title: 'Sirkulasi Darah Ganda', description: 'Animasi perjalanan darah kaya oksigen dan karbon dioksida di dalam tubuh.' }
+        { url: 'https://www.youtube.com/embed/f9ONVdn1KNo', title: 'Sirkulasi Darah Ganda & Siklus Jantung', description: 'Animasi 3D perjalanan darah kaya oksigen dan karbon dioksida di dalam ruang-ruang jantung.' }
       ]
     }
   },
@@ -389,7 +396,7 @@ Interpretasi hubungan kekerabatan menggunakan data morfologi dan molekuler (DNA)
         { url: 'https://images.unsplash.com/photo-1550684376-efcbd6e3f031?auto=format&fit=crop&q=80&w=1000', caption: 'Pohon Filogenetik Kompleks: Jejak Evolusi Kehidupan' }
       ],
       videos: [
-        { url: 'https://www.youtube.com/embed/hVvO_S1B5XU', title: 'Cara Membaca Kladogram', description: 'Panduan langkah demi langkah menentukan kekerabatan antar spesies.' }
+        { url: 'https://www.youtube.com/embed/hVvO_S1B5XU', title: 'Cara Membaca Kladogram & Parsimoni', description: 'Panduan langkah demi langkah menentukan kekerabatan monofiletik antar takson.' }
       ]
     }
   },
@@ -422,6 +429,13 @@ Proses perubahan komposisi spesies dalam komunitas seiring waktu.
     aiAssets: {
       images: [
         { url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=1000', caption: 'Interaksi Biotik dan Abiotik dalam Suatu Ekosistem Hutan' }
+      ],
+      videos: [
+        {
+          url: 'https://www.youtube.com/embed/b0u4K2wz_rI',
+          title: 'Dinamika Ekosistem & Suksesi Alam',
+          description: 'Simulasi alur trofik energi dan regenerasi ekosistem dari suksesi primer hingga klimaks.'
+        }
       ]
     }
   },
@@ -454,6 +468,13 @@ Menerima dan menghantarkan impuls listrik. Terdiri dari neuron dan sel glia.
     aiAssets: {
       images: [
         { url: 'https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&q=80&w=1000', caption: 'Empat Tipe Jaringan Utama pada Tubuh Hewan (AI Comparison Map)' }
+      ],
+      videos: [
+        {
+          url: 'https://www.youtube.com/embed/5m3l3_i39Qc',
+          title: 'Struktur Histologi 4 Jaringan Hewan',
+          description: 'Animasi penampang mikroskopis epitel, jaringan ikat, serat otot, dan sinapsis neuron.'
+        }
       ]
     }
   },
@@ -471,6 +492,13 @@ Hukum Mendel I (Segregasi) menyatakan alel memisah secara bebas saat pembentukan
     aiAssets: {
       images: [
         { url: 'https://images.unsplash.com/photo-1582719201990-255d88f6233d?auto=format&fit=crop&q=80&w=1000', caption: 'Visualisasi Diagram Punnett untuk Persilangan Dihibrid' }
+      ],
+      videos: [
+        {
+          url: 'https://www.youtube.com/embed/Mehz7tCxjSE',
+          title: 'Hukum Segregasi & Asortasi Bebas Mendel',
+          description: 'Visualisasi 3D pembelahan meiosis dan persilangan alel rekombinan pada lalat buah.'
+        }
       ]
     }
   },
@@ -488,6 +516,13 @@ Energi masuk ke ekosistem melalui produsen (fotosintesis). Hanya sekitar 10% ene
     aiAssets: {
       images: [
         { url: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80&w=1000', caption: 'Piramida Energi: Aliran Efisiensi 10% di Ekosistem Alami' }
+      ],
+      videos: [
+        {
+          url: 'https://www.youtube.com/embed/lnAKICtJIA4',
+          title: 'Piramida Biomassa & Aliran Kalori',
+          description: 'Eksplorasi efisiensi transfer energi 10% dan bioakumulasi polutan di tingkat trofik puncak.'
+        }
       ]
     }
   },
@@ -507,7 +542,7 @@ Perilaku hewan dibedakan menjadi *innate* (insting) dan *learned* (belajar). Con
         { url: 'https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?auto=format&fit=crop&q=80&w=1000', caption: 'Contoh Perilaku Belajar Imprinting pada Burung' }
       ],
       videos: [
-        { url: 'https://www.youtube.com/embed/6hREbe98E7M', title: 'Eksperimen Pavlov', description: 'Bagaimana pengondisian klasik mengubah respon instingtual hewan.' }
+        { url: 'https://www.youtube.com/embed/6hREbe98E7M', title: 'Eksperimen Pavlov & Pengondisian Operan', description: 'Bagaimana sirkuit reward otak hewan membentuk pola kebiasaan dan respon instingtual.' }
       ]
     }
   },
@@ -525,6 +560,13 @@ Kladistika mengelompokkan organisme berdasarkan nenek moyang bersama. Kladogram 
     aiAssets: {
       images: [
         { url: 'https://images.unsplash.com/photo-1563200133-cfa77d598501?auto=format&fit=crop&q=80&w=1000', caption: 'Kladogram Filogeni Vertebrata: Kerabat Terdekat Manusia' }
+      ],
+      videos: [
+        {
+          url: 'https://www.youtube.com/embed/klq2751y_f8',
+          title: 'Rekonstruksi Pohon Evolusi Molekuler',
+          description: 'Animasi perbandingan sekuens asam amino sitokrom c untuk menentukan jarak kekerabatan takson.'
+        }
       ]
     }
   }

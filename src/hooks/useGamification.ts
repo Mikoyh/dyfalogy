@@ -144,23 +144,28 @@ export const useGamification = (user: any) => {
     reviewFlashcard,
     upgradeToPro,
     cancelSubscription: async () => {
-      if (!user) return;
+      if (!user) return false;
       try {
-        const response = await fetch('/api/cancel-subscription', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.uid })
+        await updateDoc(doc(db, 'users', user.uid), {
+          isPro: false,
+          proUntil: null,
+          subscriptionId: null
         });
         
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Cancellation Error:", errorData.error);
-          throw new Error(errorData.error || "Gagal membatalkan");
+        // Notify backend server asynchronously
+        try {
+          await fetch('/api/cancel-subscription', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.uid })
+          });
+        } catch (_) {
+          // Backend notification is best-effort
         }
         return true;
       } catch (err: any) {
-        console.error(err);
-        alert(`Gagal membatalkan: ${err.message}`);
+        console.error("Cancellation Error:", err);
+        alert(`Gagal membatalkan: ${err.message || 'Terjadi kesalahan'}`);
         return false;
       }
     }
